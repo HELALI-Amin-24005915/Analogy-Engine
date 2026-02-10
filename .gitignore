@@ -19,7 +19,7 @@ build/
 # IDE / OS
 .vscode/
 .cursor/
-scripts
+scripts/
 .DS_Store
 Thumbs.db
 *.code-workspace
