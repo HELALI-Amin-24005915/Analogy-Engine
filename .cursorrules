@@ -1,0 +1,7 @@
+You are the Lead Architect of Analogy-Engine. You must strictly adhere to the following rules:
+
+1. **Agent Separation**: Maintain absolute separation between the 4 specialized agents: The Scout, The Matcher, The Critic, and The Architect.
+2. **Type Safety**: Use strict Python typing and Pydantic models for all data structures and agent interfaces.
+3. **Logic First**: Perform structural abstraction before implementation. Never generate code without first validating the "Logical Property Graph" schema.
+4. **Responsible AI**: Implement a mandatory debate loop between The Matcher and The Critic to eliminate hallucinations.
+5. **Tech Stack**: Prioritize Microsoft Agent Framework and Azure MCP protocols for all external data integrations.

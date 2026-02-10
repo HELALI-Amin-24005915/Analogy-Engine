@@ -1,0 +1,13 @@
+# Microsoft Agent Framework & AI
+autogen>=0.2.0
+openai>=1.0.0
+python-dotenv>=1.0.0
+
+# Data & Validation
+matplotlib           # Visualisation des graphes (optionnel)
+networkx>=3.0        # Graphes de propriétés logiques
+pydantic>=2.0.0
+pydantic-settings>=2.0.0
+
+# Protocols
+mcp>=0.1.0           # Azure Model Context Protocol
