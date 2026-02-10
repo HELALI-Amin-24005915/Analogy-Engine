@@ -9,17 +9,16 @@ import json
 import re
 from typing import Any
 
-from core.schema import LogicalPropertyGraph
 from pydantic import ValidationError
 
 from agents.base import BaseAgent
-
+from core.schema import LogicalPropertyGraph
 
 # Try autogen imports; fail at runtime if not installed
 try:
     import autogen
 except ImportError:
-    autogen = None  # type: ignore[assignment]
+    autogen = None
 
 SCOUT_SYSTEM_PROMPT = (
     "You are the Scout. Extract PURE LOGICAL STRUCTURES from text. "
@@ -54,8 +53,9 @@ class Scout(BaseAgent):
                 llm_config=llm_config,
                 system_message=SCOUT_SYSTEM_PROMPT,
             )
+
             # Terminate after first reply from Scout so we only parse one JSON response
-            def _is_term(msg: dict) -> bool:
+            def _is_term(msg: dict[str, Any]) -> bool:
                 return msg.get("name") == "Scout" and bool(msg.get("content"))
 
             self._user_proxy = autogen.UserProxyAgent(
@@ -82,7 +82,10 @@ class Scout(BaseAgent):
         if not text:
             return LogicalPropertyGraph(nodes=[], edges=[])
 
-        message = f"Extract the logical structure from the following text as JSON (LogicalPropertyGraph). Return only the JSON.\n\nText: {text}"
+        message = (
+            "Extract the logical structure from the following text as JSON "
+            "(LogicalPropertyGraph). Return only the JSON.\n\nText: "
+        ) + text
 
         def _run_chat() -> str:
             self._user_proxy.initiate_chat(self._assistant, message=message)
@@ -92,7 +95,11 @@ class Scout(BaseAgent):
             for msg in messages:
                 name = msg.get("name") if isinstance(msg, dict) else getattr(msg, "name", None)
                 if name == "Scout":
-                    content = msg.get("content") if isinstance(msg, dict) else getattr(msg, "content", None)
+                    content = (
+                        msg.get("content")
+                        if isinstance(msg, dict)
+                        else getattr(msg, "content", None)
+                    )
                     return str(content) if content else "{}"
             return "{}"
 

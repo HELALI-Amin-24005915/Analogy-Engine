@@ -7,9 +7,8 @@ Stub implementation; internal logic to be implemented with autogen.
 
 from typing import Any
 
-from core.schema import AnalogyMapping, ValidatedHypothesis
-
 from agents.base import BaseAgent
+from core.schema import AnalogyMapping, ValidatedHypothesis
 
 
 class Critic(BaseAgent):

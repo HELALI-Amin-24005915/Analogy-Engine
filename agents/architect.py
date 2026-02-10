@@ -7,9 +7,8 @@ Stub implementation; internal logic to be implemented with autogen.
 
 from typing import Any
 
-from core.schema import ResearchReport, ValidatedHypothesis
-
 from agents.base import BaseAgent
+from core.schema import ResearchReport, ValidatedHypothesis
 
 
 class Architect(BaseAgent):

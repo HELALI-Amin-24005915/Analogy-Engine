@@ -7,9 +7,8 @@ Stub implementation; internal logic to be implemented with autogen.
 
 from typing import Any
 
-from core.schema import AnalogyMapping, LogicalPropertyGraph
-
 from agents.base import BaseAgent
+from core.schema import AnalogyMapping, LogicalPropertyGraph
 
 
 class Matcher(BaseAgent):
@@ -54,11 +53,11 @@ class Matcher(BaseAgent):
     def _parse_input(self, data: Any) -> tuple[LogicalPropertyGraph, LogicalPropertyGraph]:
         """Extract (graph_a, graph_b) from pipeline input."""
         if isinstance(data, (list, tuple)) and len(data) >= 2:
-            return LogicalPropertyGraph.model_validate(data[0]), LogicalPropertyGraph.model_validate(
-                data[1]
-            )
+            return LogicalPropertyGraph.model_validate(
+                data[0]
+            ), LogicalPropertyGraph.model_validate(data[1])
         if isinstance(data, dict) and "graph_a" in data and "graph_b" in data:
-            return LogicalPropertyGraph.model_validate(data["graph_a"]), LogicalPropertyGraph.model_validate(
-                data["graph_b"]
-            )
+            return LogicalPropertyGraph.model_validate(
+                data["graph_a"]
+            ), LogicalPropertyGraph.model_validate(data["graph_b"])
         raise ValueError("Matcher expects (graph_a, graph_b) or dict with graph_a and graph_b.")

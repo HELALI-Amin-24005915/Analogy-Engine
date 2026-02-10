@@ -6,12 +6,10 @@ Configuration is injected; no hardcoded secrets.
 """
 
 import asyncio
-from typing import Any
-
-from core.config import build_llm_config, get_config
-from core.schema import ResearchReport
 
 from agents import Architect, Critic, Matcher, Scout
+from core.config import build_llm_config, get_config
+from core.schema import ResearchReport
 
 
 def run_pipeline(

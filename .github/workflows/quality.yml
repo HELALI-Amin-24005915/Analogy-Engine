@@ -1,5 +1,5 @@
-# Workflow: Qualité, Documentation et Sécurité
-# S'exécute sur chaque push et chaque pull_request vers main
+# Workflow: Qualité, Documentation et Sécurité (Production-grade)
+# Aligné avec scripts/verify_quality.sh
 
 name: Qualité · Doc · Sécurité
 
@@ -27,18 +27,22 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt', 'pyproject.toml') }}
 
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Qualité & Sécurité (Gatekeeper)
-        run: ./scripts/verify_quality.sh
+      - name: Ruff format (check)
+        run: ruff format --check .
+
+      - name: Ruff check
+        run: ruff check .
+
+      - name: MyPy
+        run: mypy .
+
+      - name: Sécurité (dépendances)
+        run: pip-audit --desc
 
       - name: Documentation
         run: python scripts/check_docs.py
-
-      - name: Sécurité (dépendances)
-        run: |
-          pip install pip-audit
-          pip-audit --desc

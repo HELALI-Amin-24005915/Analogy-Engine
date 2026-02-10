@@ -36,7 +36,7 @@ class Settings(BaseSettings):
 @lru_cache(maxsize=1)
 def get_config() -> Settings:
     """Load and return validated application settings (singleton)."""
-    return Settings()
+    return Settings()  # type: ignore[call-arg]
 
 
 def build_llm_config() -> dict[str, Any]:
