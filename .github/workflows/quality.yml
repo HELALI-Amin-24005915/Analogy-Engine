@@ -1,0 +1,44 @@
+# Workflow: Qualité, Documentation et Sécurité
+# S'exécute sur chaque push et chaque pull_request vers main
+
+name: Qualité · Doc · Sécurité
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  verify:
+    name: Qualité · Doc · Sécurité
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Qualité & Sécurité (Gatekeeper)
+        run: ./scripts/verify_quality.sh
+
+      - name: Documentation
+        run: python scripts/check_docs.py
+
+      - name: Sécurité (dépendances)
+        run: |
+          pip install pip-audit
+          pip-audit --desc
