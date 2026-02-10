@@ -19,6 +19,7 @@ build/
 # IDE / OS
 .vscode/
 .cursor/
+.pre-commit-config.yaml
 scripts/
 .DS_Store
 Thumbs.db
