@@ -49,6 +49,8 @@ Return ONLY a valid JSON object matching the AnalogyMapping schema:
   "score": 0.95,
   "explanation": "The analogy holds because..."
 }
+IMPORTANT: Keep 'edge_mappings' as an empty list [] to ensure schema validation
+passes. Do not attempt to map edges for now.
 Do NOT output markdown code blocks (like ```json), just the raw JSON string.
 """
 
@@ -208,6 +210,15 @@ class Matcher(BaseAgent):
         # Ensure required identifiers are present
         obj.setdefault("graph_a_id", id_a)
         obj.setdefault("graph_b_id", id_b)
+
+        # Safety sanitizer: edge_mappings must be list of (str, str) tuples
+        if "edge_mappings" in obj and isinstance(obj["edge_mappings"], list):
+            valid = all(
+                isinstance(x, (list, tuple)) and len(x) == 2 and all(isinstance(e, str) for e in x)
+                for x in obj["edge_mappings"]
+            )
+            if not valid:
+                obj["edge_mappings"] = []
 
         try:
             return AnalogyMapping.model_validate(obj)

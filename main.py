@@ -73,6 +73,7 @@ async def run_dual_domain_test() -> None:
     scout = Scout(llm_config=llm_config)
     matcher = Matcher(llm_config=llm_config)
     critic = Critic(llm_config=llm_config)
+    architect = Architect(llm_config=llm_config)
 
     text_source = (
         "In a pipe, high pressure creates a flow of water, but a narrow section restricts it."
@@ -111,12 +112,30 @@ async def run_dual_domain_test() -> None:
             }
         )
         refined_hypothesis = await critic.process(refined_mapping)
-
-        print("Final ValidatedHypothesis after refinement:")
-        print(refined_hypothesis.model_dump_json(indent=2))
+        final_hypothesis = refined_hypothesis
     else:
-        print("Final ValidatedHypothesis (no refinement needed):")
-        print(hypothesis.model_dump_json(indent=2))
+        final_hypothesis = hypothesis
+
+    # Filter 4: Synthesis (Architect)
+    report = await architect.process(final_hypothesis)
+
+    # Formatted text report
+    print("\n📄 FINAL RESEARCH REPORT")
+    print("-" * 40)
+    print("\nSummary:")
+    print(report.summary or "(none)")
+    print("\nFindings:")
+    for f in report.findings:
+        print(f"  - {f}")
+    if not report.findings:
+        print("  (none)")
+    print("\nLimitations (Critic issues):")
+    for issue in report.hypothesis.issues:
+        print(f"  - {issue}")
+    if not report.hypothesis.issues:
+        print("  (none)")
+    print("\nRecommendation:")
+    print(report.recommendation or "(none)")
 
 
 def main() -> None:
