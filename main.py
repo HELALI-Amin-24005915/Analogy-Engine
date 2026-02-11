@@ -61,17 +61,70 @@ def run_pipeline(
     return asyncio.run(_run())
 
 
+async def run_dual_domain_test() -> None:
+    """
+    Run a dual-domain test:
+    1. Scout analyzes a hydraulics text (source domain).
+    2. Scout analyzes an electronics text (target domain).
+    3. Matcher finds an analogy between the two graphs.
+    4. Critic evaluates the mapping and can trigger a refinement.
+    """
+    llm_config = build_llm_config()
+    scout = Scout(llm_config=llm_config)
+    matcher = Matcher(llm_config=llm_config)
+    critic = Critic(llm_config=llm_config)
+
+    text_source = (
+        "In a pipe, high pressure creates a flow of water, but a narrow section restricts it."
+    )
+    text_target = (
+        "In a circuit, high voltage drives an electric current, while a resistor limits it."
+    )
+
+    # Filter 1: Abstraction for each domain
+    graph_a = await scout.process(text_source)
+    graph_b = await scout.process(text_target)
+
+    # Filter 2: Transformation (analogy between two domains)
+    mapping = await matcher.process({"graph_a": graph_a, "graph_b": graph_b})
+
+    # Filter 3: Verification by Critic (first pass)
+    hypothesis = await critic.process(mapping)
+
+    # Simple 1-turn debate loop
+    if (not hypothesis.is_consistent) or (hypothesis.confidence < 0.8):
+        print("⚠️ CRITIC ISSUES:")
+        for issue in hypothesis.issues:
+            print(f"- {issue}")
+
+        # Ask Matcher to refine the analogy using critic feedback
+        refined_mapping = await matcher.process(
+            {
+                "graph_a": graph_a,
+                "graph_b": graph_b,
+                "previous_mapping": mapping.model_dump(),
+                "critic_feedback": {
+                    "is_consistent": hypothesis.is_consistent,
+                    "issues": hypothesis.issues,
+                    "confidence": hypothesis.confidence,
+                },
+            }
+        )
+        refined_hypothesis = await critic.process(refined_mapping)
+
+        print("Final ValidatedHypothesis after refinement:")
+        print(refined_hypothesis.model_dump_json(indent=2))
+    else:
+        print("Final ValidatedHypothesis (no refinement needed):")
+        print(hypothesis.model_dump_json(indent=2))
+
+
 def main() -> None:
-    """Initialize config, run pipeline with a test query, print result."""
+    """Initialize config and run the dual-domain analogy test."""
     # Validate configuration (raises if AZURE_OPENAI_API_KEY or ENDPOINT missing)
     get_config()
 
-    test_query = (
-        "Analyze the logic of: 'In fluid dynamics, high pressure causes flow unless restricted.'"
-    )
-    report = run_pipeline(test_query)
-    print("Pipeline result (ResearchReport):")
-    print(report.model_dump_json(indent=2))
+    asyncio.run(run_dual_domain_test())
 
 
 if __name__ == "__main__":

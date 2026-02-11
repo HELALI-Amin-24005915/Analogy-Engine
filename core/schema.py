@@ -35,20 +35,28 @@ class LogicalPropertyGraph(BaseModel):
     edges: list[LogicEdge] = Field(default_factory=list, description="Edges of the graph.")
 
 
+class NodeMatch(BaseModel):
+    """Matches a node from the source graph to a node in the target graph."""
+
+    source_id: str = Field(..., description="ID of the node in Graph A.")
+    target_id: str = Field(..., description="ID of the node in Graph B.")
+    reasoning: str = Field(..., description="Why these two nodes are functionally equivalent.")
+
+
 class AnalogyMapping(BaseModel):
     """Result of matching two logical graphs (Matcher output)."""
 
     graph_a_id: str = Field(..., description="Identifier for the first graph.")
     graph_b_id: str = Field(..., description="Identifier for the second graph.")
-    node_mappings: list[tuple[str, str]] = Field(
-        default_factory=list,
-        description="Pairs (node_id_in_a, node_id_in_b).",
+    node_matches: list[NodeMatch] = Field(
+        default_factory=list, description="List of node pairs with reasoning."
     )
     edge_mappings: list[tuple[str, str]] = Field(
         default_factory=list,
         description="Pairs (edge_id_in_a, edge_id_in_b) or (source:target, source:target).",
     )
     score: float = Field(default=0.0, ge=0.0, le=1.0, description="Similarity or confidence score.")
+    explanation: str = Field(default="", description="Global summary of the analogy.")
     properties: dict[str, Any] = Field(default_factory=dict, description="Optional metadata.")
 
 
