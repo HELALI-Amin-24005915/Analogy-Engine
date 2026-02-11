@@ -4,9 +4,11 @@ highlighted and dashed lines showing the isomorphism.
 """
 
 from pathlib import Path
+from typing import Any
 
 import matplotlib.pyplot as plt
 import networkx as nx
+import numpy as np
 from matplotlib.patches import ConnectionPatch
 
 from core.schema import LogicalPropertyGraph, ResearchReport
@@ -31,13 +33,13 @@ def draw_analogy(report: ResearchReport, output_path: str = "assets/analogy_map.
     node_matches = mapping.node_matches
 
     # Build networkx digraphs
-    G_a = nx.DiGraph()
+    G_a: nx.DiGraph[Any] = nx.DiGraph()
     for n in graph_a.nodes:
         G_a.add_node(n.id, label=n.label)
     for e in graph_a.edges:
         G_a.add_edge(e.source, e.target, relation=e.relation)
 
-    G_b = nx.DiGraph()
+    G_b: nx.DiGraph[Any] = nx.DiGraph()
     for n in graph_b.nodes:
         G_b.add_node(n.id, label=n.label)
     for e in graph_b.edges:
@@ -54,7 +56,8 @@ def draw_analogy(report: ResearchReport, output_path: str = "assets/analogy_map.
 
     # Colors for matched pairs (cycle through colormap)
     n_matches = max(len(node_matches), 1)
-    colors = plt.cm.tab10([i / n_matches for i in range(n_matches)])
+    cmap = plt.get_cmap("tab10")
+    colors = cmap(np.linspace(0.0, 1.0, n_matches, endpoint=False))
     match_color_by_source = {m.source_id: colors[i] for i, m in enumerate(node_matches)}
     match_color_by_target = {m.target_id: colors[i] for i, m in enumerate(node_matches)}
     default_color = [0.85, 0.85, 0.85, 1.0]  # light gray
@@ -83,8 +86,8 @@ def draw_analogy(report: ResearchReport, output_path: str = "assets/analogy_map.
     for i, m in enumerate(node_matches):
         if m.source_id not in pos_a or m.target_id not in pos_b:
             continue
-        xy_a = pos_a[m.source_id]
-        xy_b = pos_b[m.target_id]
+        xy_a = (float(pos_a[m.source_id][0]), float(pos_a[m.source_id][1]))
+        xy_b = (float(pos_b[m.target_id][0]), float(pos_b[m.target_id][1]))
         conn = ConnectionPatch(
             xy_a,
             xy_b,
