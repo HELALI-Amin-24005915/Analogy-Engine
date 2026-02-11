@@ -3,6 +3,10 @@ autogen>=0.2.0
 openai>=1.0.0
 python-dotenv>=1.0.0
 
+# UI
+streamlit
+watchdog
+
 # Data & Validation
 matplotlib           # Visualisation des graphes (optionnel)
 networkx>=3.0        # Graphes de propriétés logiques

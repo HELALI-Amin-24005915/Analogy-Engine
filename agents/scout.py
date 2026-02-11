@@ -22,6 +22,13 @@ except ImportError:
 
 SCOUT_SYSTEM_PROMPT = (
     "You are the Scout. Extract PURE LOGICAL STRUCTURES from text. "
+    "Ignore grammatical fillers, pronouns (I, me, you, we), and literal verbs. "
+    "NEVER extract human actors (I, me, person, user) as nodes. Replace them with their "
+    "functional role (e.g. 'Agent', 'Observer', 'System_Controller'). "
+    "Extract only HIGH-LEVEL LOGICAL CONCEPTS, ACTORS, and PROCESSES. "
+    "Use substantive nouns for node labels (e.g. instead of 'I am searching for a solution', "
+    "extract nodes like 'Subject' or 'Research_Process'). "
+    "All node labels MUST be in PascalCase (e.g. 'InformationSharing' not 'information sharing'). "
     "Output must be valid JSON matching the LogicalPropertyGraph schema: "
     '{"nodes": [{"id": "...", "label": "...", "node_type": "..."}], '
     '"edges": [{"source": "node_id", "target": "node_id", "relation": "..."}]}. '
@@ -106,6 +113,14 @@ class Scout(BaseAgent):
         content = await asyncio.to_thread(_run_chat)
         return self._parse_graph_response(content)
 
+    @staticmethod
+    def _to_pascal_case(s: str) -> str:
+        """Convert a label to PascalCase (e.g. 'information sharing' -> 'InformationSharing')."""
+        if not s or not s.strip():
+            return s
+        parts = re.sub(r"[_\s]+", " ", s.strip()).split()
+        return "".join(p[:1].upper() + p[1:].lower() for p in parts if p)
+
     def _parse_graph_response(self, content: str) -> LogicalPropertyGraph:
         """Parse LLM response string into LogicalPropertyGraph."""
         content = content.strip()
@@ -122,6 +137,9 @@ class Scout(BaseAgent):
         except json.JSONDecodeError:
             return LogicalPropertyGraph(nodes=[], edges=[])
         if isinstance(obj, dict) and ("nodes" in obj or "edges" in obj):
+            for node in obj.get("nodes", []):
+                if isinstance(node, dict) and "label" in node:
+                    node["label"] = self._to_pascal_case(str(node["label"]))
             try:
                 return LogicalPropertyGraph(**obj)
             except (ValidationError, TypeError):

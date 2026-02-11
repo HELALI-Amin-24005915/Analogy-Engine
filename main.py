@@ -7,7 +7,7 @@ Configuration is injected; no hardcoded secrets.
 
 import asyncio
 
-from agents import Architect, Critic, Matcher, Scout
+from agents import Architect, Critic, Librarian, Matcher, Scout
 from core.config import build_llm_config, get_config
 from core.schema import ResearchReport
 
@@ -82,6 +82,14 @@ async def run_dual_domain_test() -> None:
         "In a circuit, high voltage drives an electric current, while a resistor limits it."
     )
 
+    librarian = Librarian()
+    similar = librarian.search_analogies(f"{text_source} {text_target}")
+    if similar:
+        print(f"\n📚 {len(similar)} analogie(s) passée(s) similaire(s) trouvée(s):")
+        for report, _ in similar:
+            summary = report.summary or "(no summary)"
+        print(f"  - {summary[:80]}..." if len(summary) > 80 else f"  - {summary}")
+
     # Filter 1: Abstraction for each domain
     graph_a = await scout.process(text_source)
     graph_b = await scout.process(text_target)
@@ -144,6 +152,8 @@ async def run_dual_domain_test() -> None:
 
     draw_analogy(report)
     print("\n🎨 Analogy map saved to assets/analogy_map.png")
+
+    librarian.store_report(report)
 
 
 def main() -> None:

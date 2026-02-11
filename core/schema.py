@@ -5,6 +5,7 @@ All data flowing between filters (Scout -> Matcher -> Critic -> Architect)
 is strictly typed with Pydantic V2 models.
 """
 
+from datetime import datetime
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -78,3 +79,10 @@ class ResearchReport(BaseModel):
     findings: list[str] = Field(default_factory=list, description="Key findings.")
     recommendation: str = Field(default="", description="Research recommendation.")
     properties: dict[str, Any] = Field(default_factory=dict, description="Optional metadata.")
+
+
+class MemoryMetadata(BaseModel):
+    """Metadata for a stored analogy report (Librarian memory)."""
+
+    stored_at: datetime = Field(..., description="When the report was stored.")
+    frequency: int = Field(default=0, ge=0, description="How often this entry was retrieved or used.")

@@ -1,7 +1,8 @@
 """
-Architect Agent: Synthesis Filter.
+Architect Agent: Research Synthesis.
 
-Inputs ValidatedHypothesis, outputs ResearchReport using an AutoGen AssistantAgent.
+Transforms a validated analogy mapping into a comprehensive research report,
+translating abstract connections into concrete scientific or engineering insights.
 """
 
 import asyncio
@@ -12,49 +13,61 @@ from typing import Any
 from agents.base import BaseAgent
 from core.schema import ResearchReport, ValidatedHypothesis
 
-# Try autogen imports; fail at runtime if not installed
 try:
     import autogen
 except ImportError:  # pragma: no cover - import-time fallback
     autogen = None
 
 
-ARCHITECT_SYSTEM_PROMPT = """You are the Architect. Your mission is to synthesize the results
-of an analogy research process.
+# Prompt designed to force "translation" of mechanisms rather than mere comparison.
+ARCHITECT_SYSTEM_PROMPT = """You are the **Chief Research Architect**.
+Your goal is to transform a technical `AnalogyMapping` into a strategic, pedagogical, and actionable **Research Report**.
 
-Input: A ValidatedHypothesis (containing the analogy mapping and critic's issues).
-Output: A JSON object with summary, findings, and recommendation.
+The researcher has found a structural link between a Source Domain and a Target Problem.
+You must explain **how** the mechanisms of the Source can solve the Problem of the Target.
 
-Tasks:
-1. 'summary': Write a clear, pedagogical paragraph explaining the analogy
-   (e.g., 'X is like Y because...').
-2. 'findings': List the strong points where the analogy works perfectly.
-3. 'recommendation': Provide a final verdict on whether this analogy
-   is useful for teaching.
+### INSTRUCTIONS:
 
-Format: Return ONLY a JSON object with these fields:
+1.  **Deep Insight**:
+    - Explain *why* the Source Domain offers a relevant solution to the Target.
+    - Go beyond surface similarities. Identify the core principle (e.g., "Decentralized regulation," "Structural redundancy").
+
+2.  **Translation of Mechanisms (Crucial)**:
+    - Do not just list the node matches. **Translate the process**.
+    - Example: If the Scout found 'Cleaner Fish' (Source) matches 'Maintenance Bots' (Target), explain: *"Just as cleaner fish autonomously remove parasites without harming the host, maintenance bots could use specific recognition patterns to target rust without stopping the assembly line."*
+
+3.  **Actionable Findings**:
+    - Formulate concrete discoveries.
+    - Suggest a specific new angle of research or a hypothesis to test based on the analogy.
+
+4.  **Scientific Recommendation**:
+    - Provide an expert opinion on the validity and potential of this research avenue.
+
+### OUTPUT FORMAT:
+You must return ONLY a raw JSON object (no markdown formatting, no code blocks) with the following structure:
 {
-  "summary": "...",
-  "findings": ["...", "..."],
-  "recommendation": "..."
+    "summary": "A high-level synthesis of the analogy and its value.",
+    "findings": [
+        "Detailed paragraph explaining the first mechanism translation...",
+        "Detailed paragraph explaining the second mechanism translation...",
+        "A concrete hypothesis or experiment suggestion..."
+    ],
+    "recommendation": "Final expert verdict on this research direction."
 }
-Do NOT use markdown code fences. Return only the raw JSON object."""
+"""
 
 
 class Architect(BaseAgent):
     """
-    Synthesis filter: ValidatedHypothesis -> ResearchReport.
-
-    Uses an AutoGen AssistantAgent to turn the validated hypothesis
-    into a readable research report (summary, findings, recommendation).
+    Architect Agent using AutoGen to synthesize research reports.
     """
 
     def __init__(self, llm_config: dict[str, Any] | None = None) -> None:
         """
-        Initialize the Architect with injected LLM configuration.
+        Initialize the Architect agent.
 
         Args:
-            llm_config: AutoGen llm_config (e.g. from core.config.build_llm_config()).
+            llm_config: Configuration for the LLM (e.g. from core.config.build_llm_config()).
         """
         self._llm_config = llm_config or {}
         self._assistant: Any = None
@@ -84,10 +97,10 @@ class Architect(BaseAgent):
 
     async def process(self, data: Any) -> ResearchReport:
         """
-        Produce a research report from a validated hypothesis.
+        Synthesize a ResearchReport from a ValidatedHypothesis (or dict).
 
         Args:
-            data: ValidatedHypothesis (or dict) from the Critic.
+            data: ValidatedHypothesis or dict from the Critic.
 
         Returns:
             ResearchReport with summary, findings, and recommendation.
@@ -97,17 +110,21 @@ class Architect(BaseAgent):
 
         hypothesis = ValidatedHypothesis.model_validate(data)
 
-        payload = hypothesis.model_dump()
-        hypothesis_json = json.dumps(payload, indent=2)
-
-        message = (
+        context_data = {
+            "mapping": hypothesis.mapping.model_dump(),
+            "critic_confidence": hypothesis.confidence,
+            "critic_issues": hypothesis.issues,
+            "is_consistent": hypothesis.is_consistent,
+        }
+        prompt = (
             "Synthesize the following ValidatedHypothesis into a research report. "
-            "Return ONLY a JSON object with 'summary', 'findings', and 'recommendation'.\n\n"
-            f"{hypothesis_json}"
+            "Apply Deep Insight, Translation of Mechanisms, Actionable Findings, and Scientific Recommendation. "
+            "Return ONLY the JSON object (no markdown).\n\n"
+            f"{json.dumps(context_data, indent=2)}"
         )
 
         def _run_chat() -> str:
-            self._user_proxy.initiate_chat(self._assistant, message=message)
+            self._user_proxy.initiate_chat(self._assistant, message=prompt)
             chat_key = list(self._user_proxy.chat_messages.keys())[0]
             messages = self._user_proxy.chat_messages[chat_key]
             for msg in messages:
@@ -125,52 +142,107 @@ class Architect(BaseAgent):
         return self._parse_response(content, hypothesis)
 
     def _parse_response(self, content: str, hypothesis: ValidatedHypothesis) -> ResearchReport:
-        """Parse LLM response into a ResearchReport."""
-        content = content.strip()
+        """
+        Extract JSON from the LLM response and build ResearchReport.
+        Robust to markdown, leading/trailing text, and malformed JSON.
+        """
+        content = (content or "").strip()
+        if not content:
+            return self._create_fallback_report(hypothesis, "No response from LLM.")
 
-        fallback = ResearchReport(
-            hypothesis=hypothesis,
-            summary="",
-            findings=[],
-            recommendation="",
-            properties={"fallback": True},
+        # Remove markdown code blocks
+        cleaned_text = re.sub(r"```json\s*", "", content, flags=re.DOTALL)
+        cleaned_text = re.sub(r"```", "", cleaned_text)
+        cleaned_text = cleaned_text.strip()
+
+        # Extract first balanced {...} block (handles nested braces in strings)
+        start = cleaned_text.find("{")
+        if start < 0:
+            return self._create_fallback_report(hypothesis, "No JSON object found.")
+        depth = 0
+        in_string = False
+        escape = False
+        quote_char = ""
+        i = start
+        while i < len(cleaned_text):
+            c = cleaned_text[i]
+            if escape:
+                escape = False
+                i += 1
+                continue
+            if in_string and c == "\\":
+                escape = True
+                i += 1
+                continue
+            if not in_string:
+                if c == "{":
+                    depth += 1
+                elif c == "}":
+                    depth -= 1
+                    if depth == 0:
+                        json_str = cleaned_text[start : i + 1]
+                        break
+                elif c in ("'", '"'):
+                    in_string = True
+                    quote_char = c
+            elif c == quote_char:
+                in_string = False
+            i += 1
+        else:
+            json_str = cleaned_text[start:]
+
+        # Clean common LLM quirks
+        json_str = (
+            json_str.replace("\u2018", "'")
+            .replace("\u2019", "'")
+            .replace("\u201c", '"')
+            .replace("\u201d", '"')
+            .replace("\u00a0", " ")
         )
 
-        if not content:
-            return fallback
-
-        # Remove markdown code block if present
-        if "```json" in content:
-            content = re.sub(r"^.*?```json\s*", "", content, flags=re.DOTALL)
-        if "```" in content:
-            content = re.sub(r"\s*```.*$", "", content, flags=re.DOTALL)
-
-        content = content.strip()
-        if not content:
-            return fallback
-
         try:
-            obj = json.loads(content)
-        except json.JSONDecodeError as exc:  # pragma: no cover - defensive
-            print(f"Architect JSON decode error: {exc}")
-            print(f"Raw content (truncated): {content[:200]}...")
-            return fallback
+            data = json.loads(json_str)
+        except json.JSONDecodeError as e:
+            return self._create_fallback_report(hypothesis, f"JSON decode error: {e}")
 
-        if not isinstance(obj, dict):
-            return fallback
+        if not isinstance(data, dict):
+            return self._create_fallback_report(hypothesis, "Response is not a JSON object.")
 
-        summary = str(obj.get("summary", "") or "")
-        recommendation = str(obj.get("recommendation", "") or "")
-        findings_raw = obj.get("findings", [])
-        if not isinstance(findings_raw, list):
-            findings = [str(findings_raw)] if findings_raw else []
+        summary = str(data.get("summary") or "").strip() or "Summary generation failed."
+        recommendation = (
+            str(data.get("recommendation") or "").strip() or "No recommendation provided."
+        )
+        findings_raw = data.get("findings", [])
+        if isinstance(findings_raw, list):
+            findings = [str(it).strip() for it in findings_raw if it is not None and str(it).strip()]
+        elif isinstance(findings_raw, str):
+            findings = [
+                s.strip()
+                for s in findings_raw.replace("\n", ",").split(",")
+                if s.strip()
+            ]
         else:
-            findings = [str(it) for it in findings_raw]
+            findings = []
 
         return ResearchReport(
             hypothesis=hypothesis,
             summary=summary,
-            findings=findings,
+            findings=findings if findings else ["No structured findings extracted."],
             recommendation=recommendation,
-            properties={"architect_raw": obj},
+            properties={"architect_raw": data},
+        )
+
+    def _create_fallback_report(
+        self, hypothesis: ValidatedHypothesis, reason: str
+    ) -> ResearchReport:
+        """Create a safe fallback report if generation or parsing fails."""
+        return ResearchReport(
+            hypothesis=hypothesis,
+            summary=f"Automated synthesis failed. ({reason})",
+            findings=[
+                "The system could not parse the Architect's response.",
+                "Please review the raw logs or the Critic's evaluation directly.",
+            ],
+            recommendation="Manual review required.",
+            properties={"fallback": True, "fallback_triggered": True, "error": reason},
         )
