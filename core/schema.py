@@ -85,4 +85,6 @@ class MemoryMetadata(BaseModel):
     """Metadata for a stored analogy report (Librarian memory)."""
 
     stored_at: datetime = Field(..., description="When the report was stored.")
-    frequency: int = Field(default=0, ge=0, description="How often this entry was retrieved or used.")
+    frequency: int = Field(
+        default=0, ge=0, description="How often this entry was retrieved or used."
+    )

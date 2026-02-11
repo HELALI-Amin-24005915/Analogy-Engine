@@ -12,12 +12,11 @@ import threading
 from pathlib import Path
 from typing import Any
 
-from core.schema import ResearchReport
-
 import streamlit as st
 
 from agents import Architect, Critic, Librarian, Matcher, Scout, Visionary
 from core.config import build_llm_config, get_config
+from core.schema import ResearchReport
 from scripts.visualize_analogy import draw_analogy
 
 try:
@@ -47,6 +46,7 @@ class QueueLogWriter:
 
     def flush(self) -> None:
         sys.__stdout__.flush()
+
 
 # Default domain texts (Hydraulics / Electronics example)
 DEFAULT_SOURCE = (
@@ -116,9 +116,7 @@ def run_pipeline(
                 _drain_and_show(log_queue, log_placeholder, log_buffer)
 
             status.update(label="Matching...", state="running")
-            mapping = asyncio.run(
-                matcher.process({"graph_a": graph_a, "graph_b": graph_b})
-            )
+            mapping = asyncio.run(matcher.process({"graph_a": graph_a, "graph_b": graph_b}))
             if use_queue:
                 _drain_and_show(log_queue, log_placeholder, log_buffer)
 
@@ -186,7 +184,11 @@ def main() -> None:
             st.caption("Cliquez sur un rapport pour l'afficher.")
             for i, (report, meta) in enumerate(all_reports):
                 stored = meta.stored_at
-                ts = stored.strftime("%Y-%m-%d %H:%M") if hasattr(stored, "strftime") else str(stored)[:19]
+                ts = (
+                    stored.strftime("%Y-%m-%d %H:%M")
+                    if hasattr(stored, "strftime")
+                    else str(stored)[:19]
+                )
                 summary = (report.summary or "(no summary)")[:45]
                 label = f"{ts} — {summary}..."
                 if st.button(label, key=f"kb_load_{i}", use_container_width=True):
@@ -284,8 +286,9 @@ def main() -> None:
                     llm_config = build_llm_config()
                     visionary = Visionary(llm_config=llm_config)
                     writer_res = QueueLogWriter(log_queue_res)
-                    with contextlib.redirect_stdout(writer_res), contextlib.redirect_stderr(
-                        writer_res
+                    with (
+                        contextlib.redirect_stdout(writer_res),
+                        contextlib.redirect_stderr(writer_res),
                     ):
                         with st.status("Visionary suggesting source domain...", expanded=True):
                             suggested_source = asyncio.run(visionary.process(problem))

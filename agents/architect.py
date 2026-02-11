@@ -214,13 +214,11 @@ class Architect(BaseAgent):
         )
         findings_raw = data.get("findings", [])
         if isinstance(findings_raw, list):
-            findings = [str(it).strip() for it in findings_raw if it is not None and str(it).strip()]
-        elif isinstance(findings_raw, str):
             findings = [
-                s.strip()
-                for s in findings_raw.replace("\n", ",").split(",")
-                if s.strip()
+                str(it).strip() for it in findings_raw if it is not None and str(it).strip()
             ]
+        elif isinstance(findings_raw, str):
+            findings = [s.strip() for s in findings_raw.replace("\n", ",").split(",") if s.strip()]
         else:
             findings = []
 
