@@ -137,6 +137,14 @@ async def run_dual_domain_test() -> None:
     print("\nRecommendation:")
     print(report.recommendation or "(none)")
 
+    # Visualization: attach graphs for draw_analogy, then draw
+    report.properties["graph_a"] = graph_a.model_dump()
+    report.properties["graph_b"] = graph_b.model_dump()
+    from scripts.visualize_analogy import draw_analogy
+
+    draw_analogy(report)
+    print("\n🎨 Analogy map saved to assets/analogy_map.png")
+
 
 def main() -> None:
     """Initialize config and run the dual-domain analogy test."""

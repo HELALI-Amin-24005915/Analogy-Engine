@@ -4,6 +4,12 @@
 
 Moteur d’analogies basé sur des agents spécialisés (Scout, Matcher, Critic, Architect) et le graphe de propriétés logiques.
 
+## Démo (carte d'analogie)
+
+Exemple de sortie du pipeline bi-domaine (hydraulique ↔ électricité) : deux graphes côte à côte avec les nœuds appariés en couleur et les correspondances en pointillés.
+
+![Carte d'analogie — Graph A (source) et Graph B (cible)](assets/analogy_map.png)
+
 ## Structure du projet
 
 - **Racine**
