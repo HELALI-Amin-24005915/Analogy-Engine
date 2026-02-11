@@ -21,7 +21,8 @@ except ImportError:  # pragma: no cover - import-time fallback
 
 # Prompt designed to force "translation" of mechanisms rather than mere comparison.
 ARCHITECT_SYSTEM_PROMPT = """You are the **Chief Research Architect**.
-Your goal is to transform a technical `AnalogyMapping` into a strategic, pedagogical, and actionable **Research Report**.
+Your goal is to transform a technical `AnalogyMapping` into a strategic, pedagogical,
+and actionable **Research Report**.
 
 The researcher has found a structural link between a Source Domain and a Target Problem.
 You must explain **how** the mechanisms of the Source can solve the Problem of the Target.
@@ -30,11 +31,15 @@ You must explain **how** the mechanisms of the Source can solve the Problem of t
 
 1.  **Deep Insight**:
     - Explain *why* the Source Domain offers a relevant solution to the Target.
-    - Go beyond surface similarities. Identify the core principle (e.g., "Decentralized regulation," "Structural redundancy").
+    - Go beyond surface similarities. Identify the core principle
+      (e.g., "Decentralized regulation," "Structural redundancy").
 
 2.  **Translation of Mechanisms (Crucial)**:
     - Do not just list the node matches. **Translate the process**.
-    - Example: If the Scout found 'Cleaner Fish' (Source) matches 'Maintenance Bots' (Target), explain: *"Just as cleaner fish autonomously remove parasites without harming the host, maintenance bots could use specific recognition patterns to target rust without stopping the assembly line."*
+    - Example: If the Scout found 'Cleaner Fish' (Source) matches 'Maintenance Bots'
+      (Target), explain: *"Just as cleaner fish autonomously remove parasites without
+      harming the host, maintenance bots could use specific recognition patterns to
+      target rust without stopping the assembly line."*
 
 3.  **Actionable Findings**:
     - Formulate concrete discoveries.
@@ -44,7 +49,7 @@ You must explain **how** the mechanisms of the Source can solve the Problem of t
     - Provide an expert opinion on the validity and potential of this research avenue.
 
 ### OUTPUT FORMAT:
-You must return ONLY a raw JSON object (no markdown formatting, no code blocks) with the following structure:
+You must return ONLY a raw JSON object (no markdown, no code blocks) with this structure:
 {
     "summary": "A high-level synthesis of the analogy and its value.",
     "findings": [
@@ -118,8 +123,8 @@ class Architect(BaseAgent):
         }
         prompt = (
             "Synthesize the following ValidatedHypothesis into a research report. "
-            "Apply Deep Insight, Translation of Mechanisms, Actionable Findings, and Scientific Recommendation. "
-            "Return ONLY the JSON object (no markdown).\n\n"
+            "Apply Deep Insight, Translation of Mechanisms, Actionable Findings, "
+            "and Scientific Recommendation. Return ONLY the JSON object (no markdown).\n\n"
             f"{json.dumps(context_data, indent=2)}"
         )
 

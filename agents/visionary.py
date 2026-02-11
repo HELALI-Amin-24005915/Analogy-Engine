@@ -15,9 +15,13 @@ try:
 except ImportError:
     autogen = None
 
-VISIONARY_SYSTEM_PROMPT = """You are the Visionary. Given a target problem, your job is to suggest a far-removed Source Domain (e.g., from nature, history, or a different science) that shares the same underlying logical structure.
+VISIONARY_SYSTEM_PROMPT = """You are the Visionary. Given a target problem, suggest a
+far-removed Source Domain (e.g., from nature, history, or a different science) that
+shares the same underlying logical structure.
 
-Output exactly a 2-sentence description of this source domain. Write in plain prose, no bullet points or JSON. The first sentence should introduce the domain; the second should describe the key mechanism or structure that mirrors the target problem."""
+Output exactly a 2-sentence description of this source domain. Write in plain prose,
+no bullet points or JSON. The first sentence introduces the domain; the second
+describes the key mechanism or structure that mirrors the target problem."""
 
 
 class Visionary(BaseAgent):
@@ -78,7 +82,7 @@ class Visionary(BaseAgent):
         message = (
             "Given the following target problem or research topic, suggest a far-removed "
             "source domain (from nature, history, or another science) that shares the same "
-            "underlying logical structure. Output exactly 2 sentences describing this source domain.\n\n"
+            "underlying logical structure. Output exactly 2 sentences for this source domain.\n\n"
             f"Target problem: {problem}"
         )
 

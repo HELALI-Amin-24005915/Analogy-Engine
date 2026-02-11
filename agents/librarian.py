@@ -8,6 +8,7 @@ for past analogies by similar logical structures or domains.
 import json
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 from core.schema import MemoryMetadata, ResearchReport
 
@@ -33,7 +34,7 @@ class Librarian:
         """Create the parent directory of the memory file if it does not exist."""
         self._path.parent.mkdir(parents=True, exist_ok=True)
 
-    def _load_memory(self) -> list[dict]:
+    def _load_memory(self) -> list[dict[str, Any]]:
         """Load memory entries from the JSON file. Returns [] if file is missing."""
         if not self._path.exists():
             return []
@@ -46,7 +47,7 @@ class Librarian:
         except (json.JSONDecodeError, OSError):
             return []
 
-    def _save_memory(self, entries: list[dict]) -> None:
+    def _save_memory(self, entries: list[dict[str, Any]]) -> None:
         """Write the list of entries to the JSON file."""
         self._ensure_data_dir()
         self._path.write_text(

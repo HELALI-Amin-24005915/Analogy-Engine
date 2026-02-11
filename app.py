@@ -28,8 +28,8 @@ except ImportError:
     try:
         from streamlit.runtime.scriptrunner import add_script_run_ctx, get_script_run_ctx
     except ImportError:
-        get_script_run_ctx = None
-        add_script_run_ctx = None
+        get_script_run_ctx = None  # type: ignore[assignment]
+        add_script_run_ctx = None  # type: ignore[assignment]
 
 
 class QueueLogWriter:
@@ -41,11 +41,14 @@ class QueueLogWriter:
     def write(self, s: str) -> int:
         if s:
             self._queue.put(s)
-        sys.__stdout__.write(s)
+        out = sys.stdout
+        if out is not None:
+            out.write(s)
         return len(s)
 
     def flush(self) -> None:
-        sys.__stdout__.flush()
+        if sys.stdout is not None:
+            sys.stdout.flush()
 
 
 # Default domain texts (Hydraulics / Electronics example)
@@ -82,9 +85,9 @@ def run_pipeline(
     log_placeholder: Any | None = None,
     log_queue: "queue.Queue[str] | None" = None,
 ) -> None:
-    """Run Scout -> Matcher -> Critic (optional refine) -> Architect, then save and store results.
-    When log_placeholder and log_queue are provided, stdout is captured to the queue
-    and the placeholder is updated from the main thread after each step (no ScriptRunContext in threads).
+    """Run Scout -> Matcher -> Critic (optional refine) -> Architect, then save and store.
+    When log_placeholder and log_queue are set, stdout is captured to the queue and the
+    placeholder is updated from the main thread after each step (no ScriptRunContext).
     """
     get_config()
     llm_config = build_llm_config()
@@ -95,7 +98,7 @@ def run_pipeline(
     librarian = Librarian()
 
     use_queue = log_placeholder is not None and log_queue is not None
-    if use_queue:
+    if use_queue and log_queue is not None:
         writer = QueueLogWriter(log_queue)
         stdout_ctx: contextlib.AbstractContextManager[Any] = contextlib.redirect_stdout(writer)
         stderr_ctx: contextlib.AbstractContextManager[Any] = contextlib.redirect_stderr(writer)
@@ -109,20 +112,20 @@ def run_pipeline(
         with st.status("Running analysis...", expanded=True) as status:
             status.update(label="Scouting...", state="running")
             graph_a = asyncio.run(scout.process(text_source))
-            if use_queue:
+            if use_queue and log_queue is not None:
                 _drain_and_show(log_queue, log_placeholder, log_buffer)
             graph_b = asyncio.run(scout.process(text_target))
-            if use_queue:
+            if use_queue and log_queue is not None:
                 _drain_and_show(log_queue, log_placeholder, log_buffer)
 
             status.update(label="Matching...", state="running")
             mapping = asyncio.run(matcher.process({"graph_a": graph_a, "graph_b": graph_b}))
-            if use_queue:
+            if use_queue and log_queue is not None:
                 _drain_and_show(log_queue, log_placeholder, log_buffer)
 
             status.update(label="Critiquing...", state="running")
             hypothesis = asyncio.run(critic.process(mapping))
-            if use_queue:
+            if use_queue and log_queue is not None:
                 _drain_and_show(log_queue, log_placeholder, log_buffer)
 
             if (not hypothesis.is_consistent) or (hypothesis.confidence < 0.8):
@@ -141,14 +144,14 @@ def run_pipeline(
                     )
                 )
                 final_hypothesis = asyncio.run(critic.process(refined_mapping))
-                if use_queue:
+                if use_queue and log_queue is not None:
                     _drain_and_show(log_queue, log_placeholder, log_buffer)
             else:
                 final_hypothesis = hypothesis
 
             status.update(label="Synthesizing...", state="running")
             report = asyncio.run(architect.process(final_hypothesis))
-            if use_queue:
+            if use_queue and log_queue is not None:
                 _drain_and_show(log_queue, log_placeholder, log_buffer)
 
     report.properties["graph_a"] = graph_a.model_dump()
@@ -199,7 +202,8 @@ def main() -> None:
 
     st.title("Analogy-Engine: AI Research Workbench")
     st.markdown(
-        "Compare two domains (e.g. hydraulics vs. electronics), or use Researcher Mode to discover analogies for your problem."
+        "Compare two domains (e.g. hydraulics vs. electronics), or use Researcher Mode "
+        "to discover analogies for your problem."
     )
     st.divider()
 
@@ -227,7 +231,7 @@ def main() -> None:
             with st.expander("📝 Reasoning Process", expanded=True):
                 log_area = st.empty()
             log_queue_dual: queue.Queue[str] = queue.Queue()
-            ctx = get_script_run_ctx() if get_script_run_ctx else None
+            ctx = get_script_run_ctx() if get_script_run_ctx is not None else None
             original_start = threading.Thread.start
             if ctx is not None and add_script_run_ctx is not None:
 
@@ -235,7 +239,7 @@ def main() -> None:
                     add_script_run_ctx(self, ctx)
                     original_start(self)
 
-                threading.Thread.start = _patched_start
+                threading.Thread.start = _patched_start  # type: ignore[method-assign]
             try:
                 run_pipeline(
                     text_source.strip() or DEFAULT_SOURCE,
@@ -246,7 +250,7 @@ def main() -> None:
             except Exception as e:
                 st.error(str(e))
             finally:
-                threading.Thread.start = original_start
+                threading.Thread.start = original_start  # type: ignore[method-assign]
             st.rerun()
 
     with tab_researcher:
@@ -259,7 +263,10 @@ def main() -> None:
             "Describe your current problem or research topic",
             value="",
             height=120,
-            placeholder="Comment transférer instantanément l'information entre deux points distants sans support physique ?",
+            placeholder=(
+                "Comment transférer instantanément l'information entre deux points "
+                "distants sans support physique ?"
+            ),
             help="Formulez en concepts (sujet, objectif, phénomène) pour de meilleurs résultats.",
             key="researcher_problem",
         )
@@ -272,7 +279,7 @@ def main() -> None:
                 with st.expander("📝 Reasoning Process", expanded=True):
                     log_area_res = st.empty()
                 log_queue_res: queue.Queue[str] = queue.Queue()
-                ctx = get_script_run_ctx() if get_script_run_ctx else None
+                ctx = get_script_run_ctx() if get_script_run_ctx is not None else None
                 original_start = threading.Thread.start
                 if ctx is not None and add_script_run_ctx is not None:
 
@@ -280,7 +287,7 @@ def main() -> None:
                         add_script_run_ctx(self, ctx)
                         original_start(self)
 
-                    threading.Thread.start = _patched_start_res
+                    threading.Thread.start = _patched_start_res  # type: ignore[method-assign]
                 try:
                     get_config()
                     llm_config = build_llm_config()
@@ -305,7 +312,7 @@ def main() -> None:
                 except Exception as e:
                     st.error(str(e))
                 finally:
-                    threading.Thread.start = original_start
+                    threading.Thread.start = original_start  # type: ignore[method-assign]
                 st.rerun()
 
     active_raw = st.session_state.get(KEY_ACTIVE_REPORT)
