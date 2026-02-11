@@ -21,13 +21,17 @@ except ImportError:  # pragma: no cover - import-time fallback
     autogen = None
 
 
-MATCHER_SYSTEM_PROMPT = """You are the Matcher. Your goal is to find structural isomorphisms between two LogicalPropertyGraphs.
+MATCHER_SYSTEM_PROMPT = """You are the Matcher. Your goal is to find structural
+isomorphisms between two LogicalPropertyGraphs.
 
-1. Analyze roles, not just names (e.g., if X causes Y in Graph A, and P causes Q in Graph B, then X mirrors P).
-2. For each mapping, provide a concise 'reasoning' explaining the functional equivalence.
+1. Analyze roles, not just names (e.g., if X causes Y in Graph A, and P causes
+   Q in Graph B, then X mirrors P).
+2. For each mapping, provide a concise 'reasoning' explaining the functional
+   equivalence.
 3. Provide a global 'explanation' summarizing the analogy.
 4. Assign a confidence 'score' from 0.0 to 1.0.
-5. If you receive 'critic_feedback' and a 'previous_mapping', use them to REFINE your analogy and fix the specific issues mentioned.
+5. If you receive 'critic_feedback' and a 'previous_mapping', use them to
+   REFINE your analogy and fix the specific issues mentioned.
 
 OUTPUT FORMAT:
 Return ONLY a valid JSON object matching the AnalogyMapping schema:
@@ -79,9 +83,7 @@ class Matcher(BaseAgent):
             def _is_term(msg: dict[str, Any]) -> bool:
                 name = msg.get("name") if isinstance(msg, dict) else getattr(msg, "name", None)
                 content = (
-                    msg.get("content")
-                    if isinstance(msg, dict)
-                    else getattr(msg, "content", None)
+                    msg.get("content") if isinstance(msg, dict) else getattr(msg, "content", None)
                 )
                 return name == "Matcher" and bool(content)
 

@@ -25,8 +25,10 @@ CRITIC_SYSTEM_PROMPT = """You are the Critic. Your mission is to evaluate the lo
 of the AnalogyMapping provided by the Matcher.
 
 Check for:
-1. Structural Isomorphism: Do the connected nodes play the same role (e.g., both are causes or both are effects)?
-2. Functional Plausibility: Does each mapping 'source -> target' make sense for a human?
+1. Structural Isomorphism: Do the connected nodes play the same role
+   (e.g., both are causes or both are effects)?
+2. Functional Plausibility: Does each mapping 'source -> target'
+   make sense for a human?
 
 OUTPUT FORMAT:
 Return ONLY a JSON object with the following fields:
@@ -68,9 +70,7 @@ class Critic(BaseAgent):
             def _is_term(msg: dict[str, Any]) -> bool:
                 name = msg.get("name") if isinstance(msg, dict) else getattr(msg, "name", None)
                 content = (
-                    msg.get("content")
-                    if isinstance(msg, dict)
-                    else getattr(msg, "content", None)
+                    msg.get("content") if isinstance(msg, dict) else getattr(msg, "content", None)
                 )
                 return name == "Critic" and bool(content)
 
@@ -180,4 +180,3 @@ class Critic(BaseAgent):
             confidence=confidence,
             properties={"critic_raw": obj},
         )
-
