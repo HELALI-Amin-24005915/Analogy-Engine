@@ -31,6 +31,11 @@ class Settings(BaseSettings):
         default="2024-02-15-preview",
         description="API version for Azure OpenAI.",
     )
+    MONGODB_URI: str = Field(
+        ...,
+        min_length=1,
+        description="MongoDB connection string (e.g. mongodb+srv://...).",
+    )
 
 
 @lru_cache(maxsize=1)

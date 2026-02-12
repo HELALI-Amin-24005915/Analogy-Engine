@@ -7,6 +7,9 @@ python-dotenv>=1.0.0
 streamlit
 watchdog
 
+# Database
+pymongo[srv]
+
 # Data & Validation
 matplotlib           # Visualisation des graphes (optionnel)
 networkx>=3.0        # Graphes de propriétés logiques

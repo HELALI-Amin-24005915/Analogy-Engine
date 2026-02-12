@@ -9,6 +9,7 @@ import contextlib
 import queue
 import sys
 import threading
+import traceback
 from pathlib import Path
 from typing import Any
 
@@ -37,18 +38,19 @@ class QueueLogWriter:
 
     def __init__(self, log_queue: "queue.Queue[str]") -> None:
         self._queue = log_queue
+        # Garder la référence à la vraie sortie (évite récursion quand stdout nous redirige ici)
+        self._real_stdout = sys.__stdout__
 
     def write(self, s: str) -> int:
         if s:
             self._queue.put(s)
-        out = sys.stdout
-        if out is not None:
-            out.write(s)
+        if self._real_stdout is not None:
+            self._real_stdout.write(s)
         return len(s)
 
     def flush(self) -> None:
-        if sys.stdout is not None:
-            sys.stdout.flush()
+        if self._real_stdout is not None:
+            self._real_stdout.flush()
 
 
 # Default domain texts (Hydraulics / Electronics example)
@@ -66,6 +68,21 @@ KEY_ACTIVE_REPORT = "active_report"  # dict (model_dump) or None
 def init_session_state() -> None:
     if KEY_ACTIVE_REPORT not in st.session_state:
         st.session_state[KEY_ACTIVE_REPORT] = None
+
+
+def _run_async(coro):
+    """Exécute une coroutine de façon compatible Streamlit (évite conflit event loop)."""
+    try:
+        return asyncio.run(coro)
+    except RuntimeError as e:
+        if "cannot be called from a running event loop" in str(e):
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                return loop.run_until_complete(coro)
+            finally:
+                loop.close()
+        raise
 
 
 def _drain_and_show(log_queue: "queue.Queue[str]", log_placeholder: Any, buffer: list[str]) -> None:
@@ -111,25 +128,25 @@ def run_pipeline(
     with stdout_ctx, stderr_ctx:
         with st.status("Running analysis...", expanded=True) as status:
             status.update(label="Scouting...", state="running")
-            graph_a = asyncio.run(scout.process(text_source))
+            graph_a = _run_async(scout.process(text_source))
             if use_queue and log_queue is not None:
                 _drain_and_show(log_queue, log_placeholder, log_buffer)
-            graph_b = asyncio.run(scout.process(text_target))
+            graph_b = _run_async(scout.process(text_target))
             if use_queue and log_queue is not None:
                 _drain_and_show(log_queue, log_placeholder, log_buffer)
 
             status.update(label="Matching...", state="running")
-            mapping = asyncio.run(matcher.process({"graph_a": graph_a, "graph_b": graph_b}))
+            mapping = _run_async(matcher.process({"graph_a": graph_a, "graph_b": graph_b}))
             if use_queue and log_queue is not None:
                 _drain_and_show(log_queue, log_placeholder, log_buffer)
 
             status.update(label="Critiquing...", state="running")
-            hypothesis = asyncio.run(critic.process(mapping))
+            hypothesis = _run_async(critic.process(mapping))
             if use_queue and log_queue is not None:
                 _drain_and_show(log_queue, log_placeholder, log_buffer)
 
             if (not hypothesis.is_consistent) or (hypothesis.confidence < 0.8):
-                refined_mapping = asyncio.run(
+                refined_mapping = _run_async(
                     matcher.process(
                         {
                             "graph_a": graph_a,
@@ -143,14 +160,14 @@ def run_pipeline(
                         }
                     )
                 )
-                final_hypothesis = asyncio.run(critic.process(refined_mapping))
+                final_hypothesis = _run_async(critic.process(refined_mapping))
                 if use_queue and log_queue is not None:
                     _drain_and_show(log_queue, log_placeholder, log_buffer)
             else:
                 final_hypothesis = hypothesis
 
             status.update(label="Synthesizing...", state="running")
-            report = asyncio.run(architect.process(final_hypothesis))
+            report = _run_async(architect.process(final_hypothesis))
             if use_queue and log_queue is not None:
                 _drain_and_show(log_queue, log_placeholder, log_buffer)
 
@@ -228,6 +245,7 @@ def main() -> None:
         )
 
         if st.button("Launch Analysis", key="btn_dual"):
+            st.info("⏳ Lancement de l'analyse… (2 à 5 minutes selon les appels API)")
             with st.expander("📝 Reasoning Process", expanded=True):
                 log_area = st.empty()
             log_queue_dual: queue.Queue[str] = queue.Queue()
@@ -247,11 +265,13 @@ def main() -> None:
                     log_placeholder=log_area,
                     log_queue=log_queue_dual,
                 )
+                st.rerun()
             except Exception as e:
                 st.error(str(e))
+                with st.expander("Détails de l'erreur"):
+                    st.code(traceback.format_exc(), language="text")
             finally:
                 threading.Thread.start = original_start  # type: ignore[method-assign]
-            st.rerun()
 
     with tab_researcher:
         st.subheader("Researcher Mode")
@@ -276,6 +296,7 @@ def main() -> None:
             if not problem:
                 st.warning("Please describe your problem or research topic.")
             else:
+                st.info("⏳ Lancement de l'analyse… (2 à 5 minutes selon les appels API)")
                 with st.expander("📝 Reasoning Process", expanded=True):
                     log_area_res = st.empty()
                 log_queue_res: queue.Queue[str] = queue.Queue()
@@ -298,7 +319,7 @@ def main() -> None:
                         contextlib.redirect_stderr(writer_res),
                     ):
                         with st.status("Visionary suggesting source domain...", expanded=True):
-                            suggested_source = asyncio.run(visionary.process(problem))
+                            suggested_source = _run_async(visionary.process(problem))
                     if suggested_source:
                         st.info(f"**Visionary suggests looking at:** {suggested_source}")
                         run_pipeline(
@@ -307,13 +328,15 @@ def main() -> None:
                             log_placeholder=log_area_res,
                             log_queue=log_queue_res,
                         )
+                        st.rerun()
                     else:
                         st.error("Visionary did not return a source suggestion.")
                 except Exception as e:
                     st.error(str(e))
+                    with st.expander("Détails de l'erreur"):
+                        st.code(traceback.format_exc(), language="text")
                 finally:
                     threading.Thread.start = original_start  # type: ignore[method-assign]
-                st.rerun()
 
     active_raw = st.session_state.get(KEY_ACTIVE_REPORT)
     if active_raw is not None:
@@ -331,7 +354,9 @@ def main() -> None:
         if active_report.properties.get("graph_a") and active_report.properties.get("graph_b"):
             draw_analogy(active_report, output_path=str(map_path))
         if map_path.exists():
-            st.image(str(map_path), width="stretch")
+            # Lire les bytes pour éviter MediaFileStorageError (référence hash obsolète après rerun)
+            with open(map_path, "rb") as f:
+                st.image(f.read(), width="stretch")
         else:
             st.caption("No graph data to display for this report.")
         st.metric(
