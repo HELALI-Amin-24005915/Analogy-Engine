@@ -16,12 +16,12 @@ from typing import Any, TypeVar
 
 import streamlit as st
 
-_T = TypeVar("_T")
-
 from agents import Architect, Critic, Librarian, Matcher, Scout, Visionary
 from core.config import build_llm_config, get_config
 from core.schema import ResearchReport
 from scripts.visualize_analogy import draw_analogy
+
+_T = TypeVar("_T")
 
 try:
     from streamlit.runtime.scriptrunner_utils.script_run_context import (
