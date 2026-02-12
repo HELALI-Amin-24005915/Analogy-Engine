@@ -148,24 +148,24 @@ Report history with search by query and date.
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                         Streamlit UI (app.py)                     │
-│  [New Search]  │  [Knowledge Base]  │  [Source Filtering]         │
+│                         Streamlit UI (app.py)                   │
+│  [New Search]  │  [Knowledge Base]  │  [Source Filtering]       │
 └─────────────────────────────────────────────────────────────────┘
                                     │
                                     ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                      Agent pipeline (AutoGen)                     │
-│                                                                   │
-│   Scout ──► Matcher ──► Critic ──► Architect                      │
-│     │          │           │            │                          │
-│     │     (mapping)   (refine if       │                          │
-│     │                 confidence<0.8)   ▼                          │
-│     │                         ResearchReport + ActionPlan         │
+│                      Agent pipeline (AutoGen)                   │
+│                                                                 │
+│   Scout ──► Matcher ──► Critic ──► Architect                    │
+│     │          │           │            │                       │
+│     │     (mapping)   (refine if       │                        │
+│     │                 confidence<0.8)   ▼                       │
+│     │                         ResearchReport + ActionPlan       │
 └─────────────────────────────────────────────────────────────────┘
                                     │
                                     ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│  Librarian (MongoDB)  │  collect_sources (ddgs)  │  draw_analogy  │
+│  Librarian (MongoDB)  │  collect_sources (ddgs)  │  draw_analogy│
 └─────────────────────────────────────────────────────────────────┘
 ```
 
