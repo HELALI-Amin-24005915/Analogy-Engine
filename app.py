@@ -645,7 +645,11 @@ def main() -> None:
         st.header(f"🔍 {query_display}")
         stored_at_raw = active_report.properties.get("stored_at", "")
         if stored_at_raw:
-            stored_at_str = stored_at_raw[:19].replace("T", " ") if isinstance(stored_at_raw, str) else str(stored_at_raw)[:19]
+            stored_at_str = (
+                stored_at_raw[:19].replace("T", " ")
+                if isinstance(stored_at_raw, str)
+                else str(stored_at_raw)[:19]
+            )
             st.caption(f"Rapport généré le {stored_at_str}")
         else:
             st.caption("(date inconnue)")
