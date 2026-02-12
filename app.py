@@ -425,12 +425,110 @@ def run_pipeline(
     st.session_state[KEY_ACTIVE_REPORT] = report.model_dump(mode="json")
 
 
+_CUSTOM_CSS = """
+<style>
+/* ── Global polish ─────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+html, body, [class*="st-"] {
+    font-family: 'Inter', sans-serif;
+}
+
+/* ── Header & branding ─────────────────────────────────────── */
+.main-title {
+    background: linear-gradient(135deg, #0078D4 0%, #50E6FF 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    font-weight: 700;
+    font-size: 2.4rem;
+    letter-spacing: -0.02em;
+    margin-bottom: 0.2rem;
+}
+.subtitle {
+    color: #9CA3AF;
+    font-size: 1.05rem;
+    margin-bottom: 1.5rem;
+}
+
+/* ── Cards ─────────────────────────────────────────────────── */
+.metric-card {
+    background: linear-gradient(135deg, #1A1F2E 0%, #0E1117 100%);
+    border: 1px solid #2D3748;
+    border-radius: 12px;
+    padding: 1.2rem 1.5rem;
+    text-align: center;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+.metric-card:hover {
+    border-color: #0078D4;
+    box-shadow: 0 0 20px rgba(0,120,212,0.15);
+}
+.metric-card .metric-value {
+    font-size: 2rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, #0078D4, #50E6FF);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+.metric-card .metric-label {
+    font-size: 0.85rem;
+    color: #9CA3AF;
+    margin-top: 0.3rem;
+}
+
+/* ── Pipeline step badges ──────────────────────────────────── */
+.pipeline-step {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: #1A1F2E;
+    border: 1px solid #2D3748;
+    border-radius: 8px;
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+    color: #E2E8F0;
+    margin-right: 0.4rem;
+}
+.pipeline-arrow {
+    color: #0078D4;
+    font-size: 1.1rem;
+}
+
+/* ── Sidebar tweaks ────────────────────────────────────────── */
+section[data-testid="stSidebar"] {
+    border-right: 1px solid #2D3748;
+}
+section[data-testid="stSidebar"] h1 {
+    font-size: 1.15rem;
+    font-weight: 600;
+}
+
+/* ── Download buttons ──────────────────────────────────────── */
+.stDownloadButton > button {
+    border-radius: 8px;
+    font-weight: 600;
+    transition: transform 0.15s;
+}
+.stDownloadButton > button:hover {
+    transform: translateY(-1px);
+}
+
+/* ── Status / expander ─────────────────────────────────────── */
+details[data-testid="stExpander"] {
+    border: 1px solid #2D3748;
+    border-radius: 10px;
+}
+</style>
+"""
+
+
 def main() -> None:
     st.set_page_config(
-        page_title="Analogy-Engine",
-        page_icon="",
+        page_title="Analogy-Engine · AI Research Workbench",
+        page_icon="🔬",
         layout="wide",
     )
+    st.markdown(_CUSTOM_CSS, unsafe_allow_html=True)
     init_session_state()
 
     try:
@@ -444,17 +542,18 @@ def main() -> None:
     all_reports = list(reversed(all_reports))  # most recent first
 
     with st.sidebar:
-        if st.button("➕ New research", use_container_width=True, key="btn_new_search"):
+        st.markdown("#### 🔬 Analogy-Engine")
+        if st.button("➕ New Research", use_container_width=True, key="btn_new_search"):
             for k in [KEY_ACTIVE_REPORT, "dual_source", "dual_target", "researcher_problem"]:
                 if k in st.session_state:
                     del st.session_state[k]
             st.rerun()
         st.divider()
-        st.title("Knowledge Base")
+        st.markdown("#### 📚 Knowledge Base")
         st.metric("Total Reports", len(all_reports))
         st.divider()
         if all_reports:
-            st.caption("Cliquez sur un rapport pour l'afficher.")
+            st.caption("Click on a report to display it.")
             for i, (report, meta) in enumerate(all_reports):
                 stored = meta.stored_at
                 ts = (
@@ -462,9 +561,9 @@ def main() -> None:
                     if hasattr(stored, "strftime")
                     else str(stored)[:19]
                 )
-                raw_query = report.input_query or report.summary or "(sans requête)"
+                raw_query = report.input_query or report.summary or "(no query)"
                 query_display = raw_query[:45] + ("..." if len(raw_query) > 45 else "")
-                label = f"{ts} — {query_display}"
+                label = f"📄 {ts} — {query_display}"
                 if st.button(label, key=f"kb_load_{i}", use_container_width=True):
                     report_dict = report.model_dump(mode="json")
                     props = report_dict.get("properties") or {}
@@ -479,22 +578,22 @@ def main() -> None:
                     st.session_state[KEY_ACTIVE_REPORT] = report_dict
                     st.rerun()
         else:
-            st.caption("No past analogies yet. Run an analysis to build the knowledge base.")
+            st.info("No reports yet. Run an analysis to build your knowledge base.")
 
         st.divider()
-        st.subheader("Source Filtering")
+        st.markdown("#### 🔍 Source Filtering")
         st.checkbox(
-            "Academic Papers (arXiv, IEEE, Theses)",
+            "📖 Academic Papers (arXiv, IEEE, Theses)",
             value=False,
             key="filter_academic",
         )
         st.checkbox(
-            "Technical R&D Reports & Official Docs",
+            "🏛️ Technical R&D Reports & Official Docs",
             value=False,
             key="filter_rd",
         )
         st.checkbox(
-            "Filter Noise (Exclude News/Forums)",
+            "🚫 Filter Noise (Exclude News/Forums)",
             value=True,
             key="filter_noise",
         )
@@ -510,35 +609,57 @@ def main() -> None:
 
     if active_report is None:
         # Generation Hub
-        st.title("Analogy-Engine: AI Research Workbench")
+        st.markdown('<p class="main-title">Analogy-Engine</p>', unsafe_allow_html=True)
         st.markdown(
-            "Compare two domains (e.g. hydraulics vs. electronics), or use Researcher Mode "
-            "to discover analogies for your problem."
+            '<p class="subtitle">'
+            "AI Research Workbench — Discover hidden connections between distant domains"
+            "</p>",
+            unsafe_allow_html=True,
+        )
+
+        # Pipeline overview
+        st.markdown(
+            '<div style="margin-bottom:1.5rem">'
+            '<span class="pipeline-step">🔍 Scout</span>'
+            '<span class="pipeline-arrow">→</span>'
+            '<span class="pipeline-step">🔗 Matcher</span>'
+            '<span class="pipeline-arrow">→</span>'
+            '<span class="pipeline-step">🧪 Critic</span>'
+            '<span class="pipeline-arrow">→</span>'
+            '<span class="pipeline-step">📐 Architect</span>'
+            "</div>",
+            unsafe_allow_html=True,
         )
         st.divider()
 
-        tab_dual, tab_researcher = st.tabs(["Dual Domain", "Researcher Mode"])
+        tab_dual, tab_researcher = st.tabs(["⚡ Dual Domain", "🔭 Researcher Mode"])
 
         with tab_dual:
-            st.subheader("Dual Domain")
-            st.caption("Enter a source and a target domain to find the analogy between them.")
-            text_source = st.text_area(
-                "Source Domain",
-                value=DEFAULT_SOURCE,
-                height=100,
-                help="Text describing the source domain.",
-                key="dual_source",
+            st.subheader("⚡ Dual Domain")
+            st.caption(
+                "Enter a source and a target domain to discover the structural "
+                "analogy between them."
             )
-            text_target = st.text_area(
-                "Target Domain",
-                value=DEFAULT_TARGET,
-                height=100,
-                help="Text describing the target domain.",
-                key="dual_target",
-            )
+            col_src, col_tgt = st.columns(2)
+            with col_src:
+                text_source = st.text_area(
+                    "🅰️ Source Domain",
+                    value=DEFAULT_SOURCE,
+                    height=100,
+                    help="Text describing the source domain.",
+                    key="dual_source",
+                )
+            with col_tgt:
+                text_target = st.text_area(
+                    "🅱️ Target Domain",
+                    value=DEFAULT_TARGET,
+                    height=100,
+                    help="Text describing the target domain.",
+                    key="dual_target",
+                )
 
-            if st.button("Launch Analysis", key="btn_dual"):
-                st.info("⏳ Lancement de l'analyse… (2 à 5 minutes selon les appels API)")
+            if st.button("🚀 Launch Analysis", key="btn_dual", type="primary"):
+                st.info("⏳ Running analysis… (2–5 minutes depending on API calls)")
                 with st.expander("📝 Reasoning Process", expanded=True):
                     log_area = st.empty()
                 log_queue_dual: queue.Queue[str] = queue.Queue()
@@ -564,37 +685,35 @@ def main() -> None:
                     st.rerun()
                 except Exception as e:
                     st.error(str(e))
-                    with st.expander("Détails de l'erreur"):
+                    with st.expander("Error Details"):
                         st.code(traceback.format_exc(), language="text")
                 finally:
                     threading.Thread.start = original_start  # type: ignore[method-assign]
 
         with tab_researcher:
-            st.subheader("Researcher Mode")
+            st.subheader("🔭 Researcher Mode")
             st.caption(
-                "Describe your problem; the Visionary will suggest a far-removed source domain, "
-                "then the full pipeline runs to build the analogy."
+                "Describe your problem; the Visionary agent will suggest a far-removed source "
+                "domain, then the full pipeline runs to build the analogy."
             )
             problem_text = st.text_area(
                 "Describe your current problem or research topic",
                 value="",
                 height=120,
                 placeholder=(
-                    "Comment transférer instantanément l'information entre deux points "
-                    "distants sans support physique ?"
+                    "How to instantly transfer information between two distant points "
+                    "without a physical medium?"
                 ),
-                help=(
-                    "Formulez en concepts (sujet, objectif, phénomène) pour de meilleurs résultats."
-                ),
+                help="Use concepts (subject, goal, phenomenon) for best results.",
                 key="researcher_problem",
             )
 
-            if st.button("Discover Analogies", key="btn_researcher"):
+            if st.button("🔭 Discover Analogies", key="btn_researcher", type="primary"):
                 problem = problem_text.strip()
                 if not problem:
                     st.warning("Please describe your problem or research topic.")
                 else:
-                    st.info("⏳ Lancement de l'analyse… (2 à 5 minutes selon les appels API)")
+                    st.info("⏳ Running analysis… (2–5 minutes depending on API calls)")
                     with st.expander("📝 Reasoning Process", expanded=True):
                         log_area_res = st.empty()
                     log_queue_res: queue.Queue[str] = queue.Queue()
@@ -634,17 +753,17 @@ def main() -> None:
                             st.error("Visionary did not return a source suggestion.")
                     except Exception as e:
                         st.error(str(e))
-                        with st.expander("Détails de l'erreur"):
+                        with st.expander("Error Details"):
                             st.code(traceback.format_exc(), language="text")
                     finally:
                         threading.Thread.start = original_start  # type: ignore[method-assign]
 
     else:
         # Report Viewer
-        query_display = active_report.input_query or "(sans requête)"
+        query_display = active_report.input_query or "(no query)"
         if len(query_display) > 100:
             query_display = query_display[:97] + "..."
-        st.header(f"🔍 {query_display}")
+        st.markdown(f'<p class="main-title">🔍 {query_display}</p>', unsafe_allow_html=True)
         stored_at_raw = active_report.properties.get("stored_at", "")
         if stored_at_raw:
             stored_at_str = (
@@ -652,9 +771,9 @@ def main() -> None:
                 if isinstance(stored_at_raw, str)
                 else str(stored_at_raw)[:19]
             )
-            st.caption(f"Rapport généré le {stored_at_str}")
+            st.caption(f"Report generated on {stored_at_str}")
         else:
-            st.caption("(date inconnue)")
+            st.caption("(date unknown)")
         st.divider()
         # Redraw the graph from stored trace (graph_a, graph_b) so we don't depend on saved images
         map_path = Path("assets/maps/current_display.png")
@@ -666,13 +785,38 @@ def main() -> None:
                 st.image(f.read(), width="stretch")
         else:
             st.caption("No graph data to display for this report.")
-        st.metric(
-            "Critic's Confidence Score",
-            f"{active_report.hypothesis.confidence:.2f}",
-        )
+        # Confidence score as styled metric card
+        confidence = active_report.hypothesis.confidence
+        consistency = "✅ Consistent" if active_report.hypothesis.is_consistent else "⚠️ Issues"
+        n_matches = len(active_report.hypothesis.mapping.node_matches)
+        col_c1, col_c2, col_c3 = st.columns(3)
+        with col_c1:
+            st.markdown(
+                '<div class="metric-card">'
+                f'<div class="metric-value">{confidence:.0%}</div>'
+                '<div class="metric-label">Confidence Score</div>'
+                "</div>",
+                unsafe_allow_html=True,
+            )
+        with col_c2:
+            st.markdown(
+                '<div class="metric-card">'
+                f'<div class="metric-value">{consistency}</div>'
+                '<div class="metric-label">Logical Consistency</div>'
+                "</div>",
+                unsafe_allow_html=True,
+            )
+        with col_c3:
+            st.markdown(
+                '<div class="metric-card">'
+                f'<div class="metric-value">{n_matches}</div>'
+                '<div class="metric-label">Node Matches</div>'
+                "</div>",
+                unsafe_allow_html=True,
+            )
         st.divider()
         include_sources = st.checkbox(
-            "Inclure les sources dans l'export (PDF/Markdown)",
+            "Include sources in export (PDF/Markdown)",
             value=False,
             key="include_sources",
         )
@@ -733,12 +877,12 @@ def main() -> None:
                 if not ap.potential_pitfalls:
                     st.write("(none)")
 
-        with st.expander("📚 Voir les sources utilisées", expanded=False):
+        with st.expander("📚 Sources Used", expanded=False):
             if active_report.sources:
                 for url in active_report.sources:
                     st.markdown(f"- [{url}]({url})")
             else:
-                st.caption("(aucune source collectée)")
+                st.caption("(no sources collected)")
 
 
 if __name__ == "__main__":
