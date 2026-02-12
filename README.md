@@ -158,7 +158,7 @@ Report history with search by query and date.
 │                                                                 │
 │   Scout ──► Matcher ──► Critic ──► Architect                    │
 │     │          │           │            │                       │
-│     │     (mapping)   (refine if       │                        │
+│     │     (mapping)   (refine if        │                       │
 │     │                 confidence<0.8)   ▼                       │
 │     │                         ResearchReport + ActionPlan       │
 └─────────────────────────────────────────────────────────────────┘
