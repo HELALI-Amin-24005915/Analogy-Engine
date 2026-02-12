@@ -11,7 +11,7 @@ import re
 from typing import Any
 
 from agents.base import BaseAgent
-from core.schema import ResearchReport, ValidatedHypothesis
+from core.schema import ActionPlan, ResearchReport, ValidatedHypothesis
 
 try:
     import autogen
@@ -19,45 +19,56 @@ except ImportError:  # pragma: no cover - import-time fallback
     autogen = None
 
 
-# Prompt designed to force "translation" of mechanisms rather than mere comparison.
-ARCHITECT_SYSTEM_PROMPT = """You are the **Chief Research Architect**.
-Your goal is to transform a technical `AnalogyMapping` into a strategic, pedagogical,
-and actionable **Research Report**.
+# Senior R&D Engineer persona: translate patterns into executable engineering solutions.
+ARCHITECT_SYSTEM_PROMPT = """You are a **Senior R&D Engineer**.
+Your goal is not just to find similarities, but to *transfer* technology.
+You must translate structural patterns from the Source Domain into executable
+engineering solutions for the Target Domain.
 
-The researcher has found a structural link between a Source Domain and a Target Problem.
-You must explain **how** the mechanisms of the Source can solve the Problem of the Target.
+### DIRECTIVE:
+Transform a technical `AnalogyMapping` into an actionable **Engineering Report**
+with concrete, testable technical steps. Avoid vague language. Use precise
+technical terms (e.g. "gradient descent", "distributed ledger", "API rate limiting",
+"PID control loop", "feedback mechanism").
+
+### CONCRETE EXAMPLES:
+- If the Source uses "biological homeostasis", propose a "PID Control Loop" or
+  "Feedback Mechanism" for the Target.
+- If the Source uses "swarm coordination", propose "Consensus Algorithm" or
+  "Distributed State Machine".
+- If the Source uses "chemical catalysis", propose "Reusable Middleware" or
+  "Adapter Pattern".
 
 ### INSTRUCTIONS:
 
-1.  **Deep Insight**:
-    - Explain *why* the Source Domain offers a relevant solution to the Target.
-    - Go beyond surface similarities. Identify the core principle
-      (e.g., "Decentralized regulation," "Structural redundancy").
+1. **Summary & Findings**: Synthesize the analogy and explain mechanism translations.
 
-2.  **Translation of Mechanisms (Crucial)**:
-    - Do not just list the node matches. **Translate the process**.
-    - Example: If the Scout found 'Cleaner Fish' (Source) matches 'Maintenance Bots'
-      (Target), explain: *"Just as cleaner fish autonomously remove parasites without
-      harming the host, maintenance bots could use specific recognition patterns to
-      target rust without stopping the assembly line."*
+2. **Recommendation**: Expert verdict on this engineering direction.
 
-3.  **Actionable Findings**:
-    - Formulate concrete discoveries.
-    - Suggest a specific new angle of research or a hypothesis to test based on the analogy.
-
-4.  **Scientific Recommendation**:
-    - Provide an expert opinion on the validity and potential of this research avenue.
+3. **Action Plan (Critical)**:
+   - **transferable_mechanisms**: Specific algorithms, formulas, or logic to copy
+     from Source to Target (e.g. "Implement exponential backoff like TCP congestion control").
+   - **technical_roadmap**: Step-by-step implementation guide
+     (e.g. "Step 1: Define the loss function...", "Step 2: Implement the feedback loop...").
+   - **key_metrics_to_track**: KPIs to measure success (e.g. "latency p99", "throughput").
+   - **potential_pitfalls**: Technical risks (e.g. "oscillation in feedback loop").
 
 ### OUTPUT FORMAT:
-You must return ONLY a raw JSON object (no markdown, no code blocks) with this structure:
+Return ONLY a raw JSON object (no markdown, no code blocks):
 {
-    "summary": "A high-level synthesis of the analogy and its value.",
+    "summary": "High-level synthesis of the analogy and its engineering value.",
     "findings": [
-        "Detailed paragraph explaining the first mechanism translation...",
-        "Detailed paragraph explaining the second mechanism translation...",
-        "A concrete hypothesis or experiment suggestion..."
+        "First mechanism translation with technical detail...",
+        "Second mechanism translation...",
+        "Concrete hypothesis or experiment suggestion..."
     ],
-    "recommendation": "Final expert verdict on this research direction."
+    "recommendation": "Expert verdict on this engineering direction.",
+    "action_plan": {
+        "transferable_mechanisms": ["Specific algorithm or logic to copy...", "..."],
+        "technical_roadmap": ["Step 1: ...", "Step 2: ...", "Step 3: ..."],
+        "key_metrics_to_track": ["Metric 1", "Metric 2"],
+        "potential_pitfalls": ["Technical risk 1", "Technical risk 2"]
+    }
 }
 """
 
@@ -122,9 +133,10 @@ class Architect(BaseAgent):
             "is_consistent": hypothesis.is_consistent,
         }
         prompt = (
-            "Synthesize the following ValidatedHypothesis into a research report. "
-            "Apply Deep Insight, Translation of Mechanisms, Actionable Findings, "
-            "and Scientific Recommendation. Return ONLY the JSON object (no markdown).\n\n"
+            "Synthesize the following ValidatedHypothesis into an Engineering Report. "
+            "Include summary, findings, recommendation, and a complete action_plan "
+            "with transferable_mechanisms, technical_roadmap, key_metrics_to_track, "
+            "and potential_pitfalls. Return ONLY the JSON object (no markdown).\n\n"
             f"{json.dumps(context_data, indent=2)}"
         )
 
@@ -227,11 +239,21 @@ class Architect(BaseAgent):
         else:
             findings = []
 
+        action_plan_data = data.get("action_plan")
+        if isinstance(action_plan_data, dict):
+            try:
+                action_plan = ActionPlan.model_validate(action_plan_data)
+            except Exception:
+                action_plan = ActionPlan()
+        else:
+            action_plan = ActionPlan()
+
         return ResearchReport(
             hypothesis=hypothesis,
             summary=summary,
             findings=findings if findings else ["No structured findings extracted."],
             recommendation=recommendation,
+            action_plan=action_plan,
             properties={"architect_raw": data},
         )
 
@@ -247,5 +269,6 @@ class Architect(BaseAgent):
                 "Please review the raw logs or the Critic's evaluation directly.",
             ],
             recommendation="Manual review required.",
+            action_plan=ActionPlan(),
             properties={"fallback": True, "fallback_triggered": True, "error": reason},
         )

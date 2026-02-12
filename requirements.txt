@@ -6,6 +6,8 @@ python-dotenv>=1.0.0
 # UI
 streamlit
 watchdog
+fpdf2
+ddgs
 
 # Database
 pymongo[srv]

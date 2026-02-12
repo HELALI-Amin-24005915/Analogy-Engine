@@ -71,6 +71,27 @@ class ValidatedHypothesis(BaseModel):
     properties: dict[str, Any] = Field(default_factory=dict, description="Optional metadata.")
 
 
+class ActionPlan(BaseModel):
+    """Engineering action plan: transferable mechanisms, roadmap, metrics, pitfalls."""
+
+    transferable_mechanisms: list[str] = Field(
+        default_factory=list,
+        description="Specific algorithms or logic to copy from Source to Target.",
+    )
+    technical_roadmap: list[str] = Field(
+        default_factory=list,
+        description="Step-by-step implementation guide.",
+    )
+    key_metrics_to_track: list[str] = Field(
+        default_factory=list,
+        description="KPIs to measure success.",
+    )
+    potential_pitfalls: list[str] = Field(
+        default_factory=list,
+        description="Technical risks.",
+    )
+
+
 class ResearchReport(BaseModel):
     """Synthesis report (Architect output)."""
 
@@ -78,6 +99,18 @@ class ResearchReport(BaseModel):
     summary: str = Field(default="", description="Executive summary.")
     findings: list[str] = Field(default_factory=list, description="Key findings.")
     recommendation: str = Field(default="", description="Research recommendation.")
+    action_plan: ActionPlan = Field(
+        default_factory=ActionPlan,
+        description="Engineering action plan for implementation.",
+    )
+    sources: list[str] = Field(
+        default_factory=list,
+        description="List of source URLs collected during research.",
+    )
+    input_query: str = Field(
+        default="",
+        description="Original search query (domains or problem) entered by the user.",
+    )
     properties: dict[str, Any] = Field(default_factory=dict, description="Optional metadata.")
 
 
