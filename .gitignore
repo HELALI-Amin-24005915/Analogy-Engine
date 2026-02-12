@@ -1,6 +1,7 @@
 # Security & Environment
 .env
 .env.*
+!.env.example
 .env.local
 *.key
 secrets.json
