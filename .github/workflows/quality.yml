@@ -41,6 +41,9 @@ jobs:
       - name: MyPy
         run: mypy .
 
+      - name: Tests
+        run: pytest --tb=short -q
+
       - name: Sécurité (dépendances)
         # CVE-2025-69872 (diskcache) : aucun correctif publié, dépendance transitive (ag2)
         # CVE-2026-1703 (pip) : correctif 26.0, installation via actions/setup-python

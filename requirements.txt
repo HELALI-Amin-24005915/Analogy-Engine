@@ -22,10 +22,11 @@ pydantic-settings>=2.0.0
 # Protocols
 mcp>=0.1.0           # Azure Model Context Protocol
 
-# Dev: lint, format, type-check, security audit
+# Dev: lint, format, type-check, security audit, testing
 ruff>=0.8.0
 mypy>=1.11.0
 pip-audit>=2.0.0
+pytest>=8.0.0
 types-networkx>=3.0.0
 types-requests>=2.31.0
 types-setuptools>=70.0.0

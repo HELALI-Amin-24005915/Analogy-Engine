@@ -31,3 +31,7 @@ exclude = ["\\.venv", "venv"]
 [[tool.mypy.overrides]]
 module = "autogen.*"
 ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
