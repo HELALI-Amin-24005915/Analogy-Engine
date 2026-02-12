@@ -3,6 +3,18 @@
 [![Quality · Doc · Security](https://github.com/HELALI-Amin-24005915/Analogy-Engine/actions/workflows/quality.yml/badge.svg)](https://github.com/HELALI-Amin-24005915/Analogy-Engine/actions/workflows/quality.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
+<p align="center">
+  <strong>Built for</strong>
+  <br>
+  <a href="https://innovationstudio.microsoft.com/hackathons/ai-dev-days/">
+    <img src="https://img.shields.io/badge/Microsoft_AI_Dev_Days_Hackathon-0078D4?style=for-the-badge&logo=microsoft&logoColor=white" alt="Microsoft AI Dev Days Hackathon">
+  </a>
+  <br>
+  <a href="https://innovationstudio.microsoft.com/hackathons/ai-dev-days/">Microsoft Innovation Studio — AI Dev Days</a>
+</p>
+
+---
+
 **Analogy-Engine** is an AI-powered analogy engine for scientific research. It connects distant domains (e.g. hydraulics ↔ electricity, ecosystems ↔ distributed systems) through a chain of specialized agents and generates structured reports with a technical action plan.
 
 ---
@@ -17,6 +29,35 @@
 | **Knowledge Base** | MongoDB storage for reports; browse history |
 | **Sources** | Collect links via DuckDuckGo with academic / R&D filters |
 | **Export** | Download reports as Markdown and PDF |
+
+---
+
+## Tech Stack
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Python-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python">
+  <img src="https://img.shields.io/badge/Streamlit-FF4B4B?style=flat-square&logo=streamlit&logoColor=white" alt="Streamlit">
+  <img src="https://img.shields.io/badge/Azure_OpenAI-0078D4?style=flat-square&logo=microsoft-azure&logoColor=white" alt="Azure OpenAI">
+  <img src="https://img.shields.io/badge/MongoDB-47A248?style=flat-square&logo=mongodb&logoColor=white" alt="MongoDB">
+  <img src="https://img.shields.io/badge/AutoGen-Microsoft-0078D4?style=flat-square&logo=microsoft&logoColor=white" alt="AutoGen">
+  <img src="https://img.shields.io/badge/OpenAI-412991?style=flat-square&logo=openai&logoColor=white" alt="OpenAI">
+  <img src="https://img.shields.io/badge/Pydantic-E92063?style=flat-square&logo=pydantic&logoColor=white" alt="Pydantic">
+  <img src="https://img.shields.io/badge/NetworkX-008CC1?style=flat-square&logo=networkx&logoColor=white" alt="NetworkX">
+  <img src="https://img.shields.io/badge/Matplotlib-11557C?style=flat-square&logo=matplotlib&logoColor=white" alt="Matplotlib">
+  <img src="https://img.shields.io/badge/DuckDuckGo-DE5833?style=flat-square&logo=duckduckgo&logoColor=white" alt="DuckDuckGo">
+</p>
+
+| Layer | Technology |
+|-------|------------|
+| **AI / Agents** | [AutoGen](https://microsoft.github.io/autogen/) (Microsoft), Azure OpenAI, GPT-4 |
+| **Backend** | Python 3.10+, Pydantic, asyncio |
+| **Database** | MongoDB Atlas (PyMongo) |
+| **UI** | Streamlit |
+| **Search** | [ddgs](https://pypi.org/project/ddgs/) (DuckDuckGo) |
+| **Graphs** | NetworkX, Matplotlib |
+| **Export** | fpdf2 (PDF), Markdown |
+| **Protocols** | MCP (Model Context Protocol) |
+| **Dev** | Ruff, MyPy, pip-audit |
 
 ---
 
@@ -226,6 +267,6 @@ You may freely use, modify, and distribute this software under the terms of the 
 
 ## Contributors
 
-Project developed as part of a Hackathon.
+Project developed for the **[Microsoft AI Dev Days Hackathon](https://innovationstudio.microsoft.com/hackathons/ai-dev-days/)** (Microsoft Innovation Studio).
 
 Repository: [github.com/HELALI-Amin-24005915/Analogy-Engine](https://github.com/HELALI-Amin-24005915/Analogy-Engine)
