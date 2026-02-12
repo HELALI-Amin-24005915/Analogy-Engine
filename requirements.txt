@@ -12,6 +12,7 @@ pymongo[srv]
 
 # Data & Validation
 matplotlib           # Visualisation des graphes (optionnel)
+pillow>=12.1.1      # Correctif CVE-2026-25990 (transitive via matplotlib)
 networkx>=3.0        # Graphes de propriétés logiques
 pydantic>=2.0.0
 pydantic-settings>=2.0.0

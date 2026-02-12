@@ -42,7 +42,9 @@ jobs:
         run: mypy .
 
       - name: Sécurité (dépendances)
-        run: pip-audit --desc
+        # CVE-2025-69872 (diskcache) : aucun correctif publié, dépendance transitive (ag2)
+        # CVE-2026-1703 (pip) : correctif 26.0, installation via actions/setup-python
+        run: pip-audit --desc --ignore-vuln CVE-2025-69872 --ignore-vuln CVE-2026-1703
 
       - name: Documentation
         run: python scripts/check_docs.py
