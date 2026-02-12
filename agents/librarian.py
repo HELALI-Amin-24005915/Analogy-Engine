@@ -5,6 +5,7 @@ Manages storage and retrieval of reports via MongoDB Atlas.
 """
 
 from datetime import datetime, timezone
+from typing import Any
 
 from pymongo import MongoClient
 from pymongo.collection import Collection
@@ -27,9 +28,9 @@ class Librarian:
     def __init__(self) -> None:
         """Initialize the Librarian with MongoDB connection from config."""
         config = get_config()
-        self._client = MongoClient(config.MONGODB_URI)
-        self._db: Database = self._client[self.DB_NAME]
-        self._collection: Collection = self._db[self.COLLECTION_NAME]
+        self._client: MongoClient[Any] = MongoClient(config.MONGODB_URI)
+        self._db: Database[Any] = self._client[self.DB_NAME]
+        self._collection: Collection[Any] = self._db[self.COLLECTION_NAME]
 
     def store_report(self, report: ResearchReport) -> None:
         """

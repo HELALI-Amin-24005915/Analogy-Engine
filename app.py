@@ -10,10 +10,13 @@ import queue
 import sys
 import threading
 import traceback
+from collections.abc import Coroutine
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeVar
 
 import streamlit as st
+
+_T = TypeVar("_T")
 
 from agents import Architect, Critic, Librarian, Matcher, Scout, Visionary
 from core.config import build_llm_config, get_config
@@ -70,7 +73,7 @@ def init_session_state() -> None:
         st.session_state[KEY_ACTIVE_REPORT] = None
 
 
-def _run_async(coro):
+def _run_async(coro: Coroutine[Any, Any, _T]) -> _T:
     """Exécute une coroutine de façon compatible Streamlit (évite conflit event loop)."""
     try:
         return asyncio.run(coro)
@@ -367,8 +370,8 @@ def main() -> None:
         st.write("**Summary**")
         st.write(active_report.summary or "(none)")
         st.write("**Findings**")
-        for f in active_report.findings:
-            st.write(f"- {f}")
+        for finding in active_report.findings:
+            st.write(f"- {finding}")
         if not active_report.findings:
             st.write("(none)")
         st.write("**Recommendation**")
