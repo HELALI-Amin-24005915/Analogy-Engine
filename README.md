@@ -10,7 +10,6 @@
     <img src="https://img.shields.io/badge/Microsoft_AI_Dev_Days_Hackathon-0078D4?style=for-the-badge&logo=microsoft&logoColor=white" alt="Microsoft AI Dev Days Hackathon">
   </a>
   <br>
-  <a href="https://innovationstudio.microsoft.com/hackathons/ai-dev-days/">Microsoft Innovation Studio — AI Dev Days</a>
 </p>
 
 ---
