@@ -583,7 +583,9 @@ def main() -> None:
                     "Comment transférer instantanément l'information entre deux points "
                     "distants sans support physique ?"
                 ),
-                help="Formulez en concepts (sujet, objectif, phénomène) pour de meilleurs résultats.",
+                help=(
+                    "Formulez en concepts (sujet, objectif, phénomène) pour de meilleurs résultats."
+                ),
                 key="researcher_problem",
             )
 
