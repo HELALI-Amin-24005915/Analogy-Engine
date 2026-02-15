@@ -209,7 +209,7 @@ Report history with search by query and date.
 
 ---
 
-## 🏗️ System Architecture
+## System Architecture
 
 Analogy-Engine uses a Pipe-and-Filter multi-agent pipeline (Scout, Matcher, Critic, Architect) that respects a Triple-Layer Ontology and an optional refinement loop until the Critic accepts the mapping.
 
