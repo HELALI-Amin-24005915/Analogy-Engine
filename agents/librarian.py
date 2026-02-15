@@ -7,6 +7,7 @@ Manages storage and retrieval of reports via MongoDB Atlas.
 from datetime import datetime, timezone
 from typing import Any
 
+from bson import ObjectId
 from pymongo import MongoClient
 from pymongo.collection import Collection
 from pymongo.database import Database
@@ -28,7 +29,16 @@ class Librarian:
     def __init__(self) -> None:
         """Initialize the Librarian with MongoDB connection from config."""
         config = get_config()
-        self._client: MongoClient[Any] = MongoClient(config.MONGODB_URI)
+        try:
+            self._client: MongoClient[Any] = MongoClient(
+                config.MONGODB_URI,
+                tlsAllowInvalidCertificates=True,
+                serverSelectionTimeoutMS=5000,
+            )
+        except Exception as e:
+            raise RuntimeError(
+                f"MongoDB connection failed (check MONGODB_URI and network/SSL): {e}"
+            ) from e
         self._db: Database[Any] = self._client[self.DB_NAME]
         self._collection: Collection[Any] = self._db[self.COLLECTION_NAME]
 
@@ -49,29 +59,46 @@ class Librarian:
         }
         self._collection.insert_one(document)
 
-    def get_all_reports(self) -> list[tuple[ResearchReport, MemoryMetadata]]:
+    def get_all_reports(
+        self,
+    ) -> list[tuple[ResearchReport, MemoryMetadata, ObjectId]]:
         """
-        Return all stored reports with their metadata (for UI listing).
+        Return all stored reports with their metadata and document id (for UI listing and delete).
 
         Returns:
-            List of (ResearchReport, MemoryMetadata) sorted by stored_at descending.
+            List of (ResearchReport, MemoryMetadata, doc_id) sorted by stored_at descending.
         """
         cursor = self._collection.find().sort("metadata.stored_at", -1)
-        results: list[tuple[ResearchReport, MemoryMetadata]] = []
+        results: list[tuple[ResearchReport, MemoryMetadata, ObjectId]] = []
         for doc in cursor:
             report_dict = doc.get("report")
             meta_dict = doc.get("metadata")
+            doc_id = doc.get("_id")
             if not isinstance(report_dict, dict) or not isinstance(meta_dict, dict):
+                continue
+            if doc_id is None:
                 continue
             try:
                 report = ResearchReport.model_validate(report_dict)
                 metadata = MemoryMetadata.model_validate(meta_dict)
-                results.append((report, metadata))
+                results.append((report, metadata, doc_id))
             except Exception:
                 continue
         return results
 
-    def search_analogies(self, query_text: str) -> list[tuple[ResearchReport, MemoryMetadata]]:
+    def delete_report(self, doc_id: ObjectId) -> bool:
+        """
+        Delete a report by its MongoDB document id.
+
+        Returns:
+            True if a document was deleted, False otherwise.
+        """
+        result = self._collection.delete_one({"_id": doc_id})
+        return result.deleted_count > 0
+
+    def search_analogies(
+        self, query_text: str
+    ) -> list[tuple[ResearchReport, MemoryMetadata, ObjectId]]:
         """
         Find past analogies that share similar logical structures or domains.
 
@@ -81,7 +108,7 @@ class Librarian:
             query_text: Search query (e.g. concatenated source and target text).
 
         Returns:
-            List of (ResearchReport, MemoryMetadata) for matching entries.
+            List of (ResearchReport, MemoryMetadata, doc_id) for matching entries.
         """
         all_reports = self.get_all_reports()
         if not query_text:
@@ -90,8 +117,8 @@ class Librarian:
         query_lower = query_text.lower().strip()
         query_words = [w for w in query_lower.split() if w]
 
-        results: list[tuple[ResearchReport, MemoryMetadata]] = []
-        for report, metadata in all_reports:
+        results: list[tuple[ResearchReport, MemoryMetadata, ObjectId]] = []
+        for report, metadata, doc_id in all_reports:
             searchable_parts = [
                 report.summary or "",
                 report.recommendation or "",
@@ -110,6 +137,6 @@ class Librarian:
                         break
 
             if matches:
-                results.append((report, metadata))
+                results.append((report, metadata, doc_id))
 
         return results

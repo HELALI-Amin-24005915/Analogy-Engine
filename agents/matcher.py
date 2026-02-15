@@ -12,6 +12,7 @@ from typing import Any
 from pydantic import ValidationError
 
 from agents.base import BaseAgent
+from core.ontology import ALIGNMENT_RULES, POLYMORPHISM_RULE
 from core.schema import AnalogyMapping, LogicalPropertyGraph
 
 # Try autogen imports; fail at runtime if not installed
@@ -21,20 +22,29 @@ except ImportError:  # pragma: no cover - import-time fallback
     autogen = None
 
 
-MATCHER_SYSTEM_PROMPT = """You are the Matcher. Your goal is to find structural
+MATCHER_SYSTEM_PROMPT = (
+    """You are the Matcher. Your goal is to find structural
 isomorphisms between two LogicalPropertyGraphs.
 
-1. Analyze roles, not just names (e.g., if X causes Y in Graph A, and P causes
-   Q in Graph B, then X mirrors P).
-2. For each mapping, provide a concise 'reasoning' explaining the functional
-   equivalence.
-3. Provide a global 'explanation' summarizing the analogy.
-4. Assign a confidence 'score' from 0.0 to 1.0.
-5. If you receive 'critic_feedback' and a 'previous_mapping', use them to
-   REFINE your analogy and fix the specific issues mentioned.
+"""
+    + ALIGNMENT_RULES.strip()
+    + """
+
+"""
+    + POLYMORPHISM_RULE.strip()
+    + """
+
+RULES:
+1. ONLY map nodes with the SAME ontological type: STRUCTURE<->STRUCTURE, FUNCTION<->FUNCTION, ATTRIBUTE<->ATTRIBUTE. FORBIDDEN: mapping STRUCTURE to FUNCTION or ATTRIBUTE, etc.
+2. For each node_match, copy the node_type from the source graph node into 'source_ontology' and from the target graph node into 'target_ontology'. They MUST be identical (same type).
+3. Analyze roles, not just names (e.g., if X causes Y in Graph A, and P causes Q in Graph B, then X mirrors P).
+4. For each mapping, provide a concise 'reasoning' explaining the functional equivalence.
+5. Provide a global 'explanation' summarizing the analogy.
+6. Assign a confidence 'score' from 0.0 to 1.0.
+7. If you receive 'critic_feedback' and a 'previous_mapping', use them to REFINE your analogy and fix the specific issues mentioned (including any categorical mismatches).
 
 OUTPUT FORMAT:
-Return ONLY a valid JSON object matching the AnalogyMapping schema:
+Return ONLY a valid JSON object matching the AnalogyMapping schema. Each node_match MUST include source_ontology and target_ontology (values from the nodes' node_type in graph_a and graph_b):
 {
   "graph_a_id": "source_graph_id",
   "graph_b_id": "target_graph_id",
@@ -42,17 +52,18 @@ Return ONLY a valid JSON object matching the AnalogyMapping schema:
     {
       "source_id": "id_from_A",
       "target_id": "id_from_B",
-      "reasoning": "Both elements act as the driving force..."
+      "reasoning": "Both elements act as the driving force...",
+      "source_ontology": "STRUCTURE",
+      "target_ontology": "STRUCTURE"
     }
   ],
   "edge_mappings": [],
   "score": 0.95,
   "explanation": "The analogy holds because..."
 }
-IMPORTANT: Keep 'edge_mappings' as an empty list [] to ensure schema validation
-passes. Do not attempt to map edges for now.
-Do NOT output markdown code blocks (like ```json), just the raw JSON string.
+IMPORTANT: Keep 'edge_mappings' as an empty list []. Do NOT output markdown code blocks (like ```json), just the raw JSON string.
 """
+)
 
 
 class Matcher(BaseAgent):

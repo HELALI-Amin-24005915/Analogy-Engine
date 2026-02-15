@@ -12,6 +12,7 @@ from typing import Any
 from pydantic import ValidationError
 
 from agents.base import BaseAgent
+from core.ontology import ONTOLOGY_TAXONOMY, VALID_NODE_TYPES
 from core.schema import LogicalPropertyGraph
 
 # Try autogen imports; fail at runtime if not installed
@@ -29,8 +30,11 @@ SCOUT_SYSTEM_PROMPT = (
     "Use substantive nouns for node labels (e.g. instead of 'I am searching for a solution', "
     "extract nodes like 'Subject' or 'Research_Process'). "
     "All node labels MUST be in PascalCase (e.g. 'InformationSharing' not 'information sharing'). "
+    "\n\n"
+    "TRIPLE-LAYER ONTOLOGY (mandatory): Every node MUST have node_type set to exactly one of: "
+    "STRUCTURE, FUNCTION, or ATTRIBUTE. " + ONTOLOGY_TAXONOMY.strip() + "\n\n"
     "Output must be valid JSON matching the LogicalPropertyGraph schema: "
-    '{"nodes": [{"id": "...", "label": "...", "node_type": "..."}], '
+    '{"nodes": [{"id": "...", "label": "...", "node_type": "STRUCTURE" or "FUNCTION" or "ATTRIBUTE"}], '
     '"edges": [{"source": "node_id", "target": "node_id", "relation": "..."}]}. '
     "Return only the JSON object, no markdown or extra text."
 )
@@ -138,8 +142,12 @@ class Scout(BaseAgent):
             return LogicalPropertyGraph(nodes=[], edges=[])
         if isinstance(obj, dict) and ("nodes" in obj or "edges" in obj):
             for node in obj.get("nodes", []):
-                if isinstance(node, dict) and "label" in node:
-                    node["label"] = self._to_pascal_case(str(node["label"]))
+                if isinstance(node, dict):
+                    if "label" in node:
+                        node["label"] = self._to_pascal_case(str(node["label"]))
+                    # Normalize node_type to ontology: only STRUCTURE, FUNCTION, ATTRIBUTE
+                    if node.get("node_type") not in VALID_NODE_TYPES:
+                        node["node_type"] = "STRUCTURE"
             try:
                 return LogicalPropertyGraph(**obj)
             except (ValidationError, TypeError):

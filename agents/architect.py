@@ -11,6 +11,7 @@ import re
 from typing import Any
 
 from agents.base import BaseAgent
+from core.ontology import SIGNAL_STATE_AND_DECOUPLING
 from core.schema import ActionPlan, ResearchReport, ValidatedHypothesis
 
 try:
@@ -20,7 +21,8 @@ except ImportError:  # pragma: no cover - import-time fallback
 
 
 # Senior R&D Engineer persona: translate patterns into executable engineering solutions.
-ARCHITECT_SYSTEM_PROMPT = """You are a **Senior R&D Engineer**.
+ARCHITECT_SYSTEM_PROMPT = (
+    """You are a **Senior R&D Engineer**.
 Your goal is not just to find similarities, but to *transfer* technology.
 You must translate structural patterns from the Source Domain into executable
 engineering solutions for the Target Domain.
@@ -53,6 +55,12 @@ technical terms (e.g. "gradient descent", "distributed ledger", "API rate limiti
    - **key_metrics_to_track**: KPIs to measure success (e.g. "latency p99", "throughput").
    - **potential_pitfalls**: Technical risks (e.g. "oscillation in feedback loop").
 
+### SIGNAL & STATE INTEGRITY / DECOUPLING:
+"""
+    + "\n\n"
+    + SIGNAL_STATE_AND_DECOUPLING.strip()
+    + """
+
 ### OUTPUT FORMAT:
 Return ONLY a raw JSON object (no markdown, no code blocks):
 {
@@ -71,6 +79,7 @@ Return ONLY a raw JSON object (no markdown, no code blocks):
     }
 }
 """
+)
 
 
 class Architect(BaseAgent):

@@ -6,9 +6,12 @@ is strictly typed with Pydantic V2 models.
 """
 
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
+
+# Triple-Layer Ontology: only these node types are valid for alignment.
+NodeTypeLiteral = Literal["STRUCTURE", "FUNCTION", "ATTRIBUTE"]
 
 
 class LogicNode(BaseModel):
@@ -16,7 +19,10 @@ class LogicNode(BaseModel):
 
     id: str = Field(..., description="Unique identifier for the node.")
     label: str = Field(..., description="Human-readable label.")
-    node_type: str = Field(default="concept", description="Type of logical entity.")
+    node_type: NodeTypeLiteral = Field(
+        default="STRUCTURE",
+        description="Ontological type: STRUCTURE (What), FUNCTION (How), or ATTRIBUTE (Cost/Value).",
+    )
     properties: dict[str, Any] = Field(default_factory=dict, description="Optional metadata.")
 
 
@@ -42,6 +48,14 @@ class NodeMatch(BaseModel):
     source_id: str = Field(..., description="ID of the node in Graph A.")
     target_id: str = Field(..., description="ID of the node in Graph B.")
     reasoning: str = Field(..., description="Why these two nodes are functionally equivalent.")
+    source_ontology: str | None = Field(
+        default=None,
+        description="Ontological type of source node (STRUCTURE/FUNCTION/ATTRIBUTE). Must equal target_ontology.",
+    )
+    target_ontology: str | None = Field(
+        default=None,
+        description="Ontological type of target node (STRUCTURE/FUNCTION/ATTRIBUTE). Must equal source_ontology.",
+    )
 
 
 class AnalogyMapping(BaseModel):

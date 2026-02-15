@@ -19,6 +19,8 @@ VISIONARY_SYSTEM_PROMPT = """You are the Visionary. Given a target problem, sugg
 far-removed Source Domain (e.g., from nature, history, or a different science) that
 shares the same underlying logical structure.
 
+Frame the suggestion in terms of structures (entities, components), functions (processes, mechanisms), and attributes (metrics, qualities) where relevant, so that downstream analysis can align domains by ontological type.
+
 Output exactly a 2-sentence description of this source domain. Write in plain prose,
 no bullet points or JSON. The first sentence introduces the domain; the second
 describes the key mechanism or structure that mirrors the target problem."""

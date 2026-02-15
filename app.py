@@ -20,8 +20,13 @@ import streamlit as st
 from fpdf import FPDF  # type: ignore[import-untyped]
 
 from agents import Architect, Critic, Librarian, Matcher, Scout, Visionary
-from core.config import build_llm_config, get_config
-from core.schema import ResearchReport
+from core.config import build_llm_config, build_llm_config_from_input, get_config
+from core.ontology import check_ontology_alignment as _check_ontology_alignment
+from core.schema import (
+    ResearchReport,
+    ValidatedHypothesis,
+)
+from data_manager import get_existing_data
 from scripts.visualize_analogy import draw_analogy
 
 _T = TypeVar("_T")
@@ -69,11 +74,24 @@ DEFAULT_TARGET = (
 
 # Session state keys
 KEY_ACTIVE_REPORT = "active_report"  # dict (model_dump) or None
+KEY_ACTIVE_REPORT_ID = "active_report_id"  # MongoDB ObjectId for delete
+
+
+def _get_live_llm_config() -> dict[str, Any]:
+    """Build LLM config from sidebar inputs if set, otherwise from .env (local)."""
+    api_key = (st.session_state.get("user_api_key") or "").strip()
+    endpoint = (st.session_state.get("user_endpoint") or "").strip()
+    if api_key and endpoint:
+        deployment = st.session_state.get("user_deployment", "gpt-4o")
+        return build_llm_config_from_input(api_key, endpoint, deployment)
+    return build_llm_config()
 
 
 def init_session_state() -> None:
     if KEY_ACTIVE_REPORT not in st.session_state:
         st.session_state[KEY_ACTIVE_REPORT] = None
+    if KEY_ACTIVE_REPORT_ID not in st.session_state:
+        st.session_state[KEY_ACTIVE_REPORT_ID] = None
 
 
 def _run_async(coro: Coroutine[Any, Any, _T]) -> _T:
@@ -335,7 +353,25 @@ def generate_pdf(report: ResearchReport, include_sources: bool = False) -> bytes
     return buf.getvalue()
 
 
+def _drain_milestones(
+    milestone_queue: "queue.Queue[str]",
+    milestone_placeholder: Any,
+    buffer: list[str],
+) -> None:
+    """Drain milestone queue into buffer and update placeholder with timestamped log."""
+    try:
+        while True:
+            buffer.append(milestone_queue.get_nowait())
+    except queue.Empty:
+        pass
+    if buffer and milestone_placeholder is not None:
+        ts = datetime.now(timezone.utc).strftime("%H:%M:%S")
+        lines = [f"[{ts}] {m}" for m in buffer]
+        milestone_placeholder.code("\n".join(lines), language="text")
+
+
 def run_pipeline(
+    llm_config: dict[str, Any],
     text_source: str,
     text_target: str,
     *,
@@ -344,13 +380,15 @@ def run_pipeline(
     filter_noise: bool = True,
     log_placeholder: Any | None = None,
     log_queue: "queue.Queue[str] | None" = None,
+    milestone_placeholder: Any | None = None,
+    milestone_queue: "queue.Queue[str] | None" = None,
 ) -> None:
     """Run Scout -> Matcher -> Critic (optional refine) -> Architect, then save and store.
+    llm_config must be built from build_llm_config_from_input() in Live mode.
     When log_placeholder and log_queue are set, stdout is captured to the queue and the
     placeholder is updated from the main thread after each step (no ScriptRunContext).
+    When milestone_placeholder and milestone_queue are set, agent milestones are shown in the console.
     """
-    get_config()
-    llm_config = build_llm_config()
     scout = Scout(llm_config=llm_config)
     matcher = Matcher(llm_config=llm_config)
     critic = Critic(llm_config=llm_config)
@@ -358,6 +396,7 @@ def run_pipeline(
     librarian = Librarian()
 
     use_queue = log_placeholder is not None and log_queue is not None
+    use_milestones = milestone_placeholder is not None and milestone_queue is not None
     if use_queue and log_queue is not None:
         writer = QueueLogWriter(log_queue)
         stdout_ctx: contextlib.AbstractContextManager[Any] = contextlib.redirect_stdout(writer)
@@ -367,28 +406,61 @@ def run_pipeline(
         stderr_ctx = contextlib.nullcontext()
 
     log_buffer: list[str] = []
+    milestone_buffer: list[str] = []
+
+    def _milestone(msg: str) -> None:
+        if use_milestones and milestone_queue is not None:
+            milestone_queue.put(msg)
+            if milestone_placeholder is not None:
+                _drain_milestones(milestone_queue, milestone_placeholder, milestone_buffer)
 
     with stdout_ctx, stderr_ctx:
         with st.status("Running analysis...", expanded=True) as status:
             status.update(label="Scouting...", state="running")
+            _milestone("Scout: Extracting logical graph from source domain...")
             graph_a = _run_async(scout.process(text_source))
             if use_queue and log_queue is not None:
                 _drain_and_show(log_queue, log_placeholder, log_buffer)
+            n_a = len(graph_a.nodes)
+            e_a = len(graph_a.edges)
+            _milestone(f"Scout: Graph extraction complete — source ({n_a} nodes, {e_a} edges)")
+            _milestone("Scout: Extracting logical graph from target domain...")
             graph_b = _run_async(scout.process(text_target))
             if use_queue and log_queue is not None:
                 _drain_and_show(log_queue, log_placeholder, log_buffer)
+            n_b = len(graph_b.nodes)
+            e_b = len(graph_b.edges)
+            _milestone(f"Scout: Graph extraction complete — target ({n_b} nodes, {e_b} edges)")
 
             status.update(label="Matching...", state="running")
+            _milestone("Matcher: Aligning nodes between domains...")
             mapping = _run_async(matcher.process({"graph_a": graph_a, "graph_b": graph_b}))
             if use_queue and log_queue is not None:
                 _drain_and_show(log_queue, log_placeholder, log_buffer)
+            n_m = len(mapping.node_matches)
+            _milestone(f"Matcher: Aligned {n_m} node pairs between domains")
 
             status.update(label="Critiquing...", state="running")
-            hypothesis = _run_async(critic.process(mapping))
+            _milestone("Critic: Validating mapping consistency and confidence...")
+            ontology_ok, ontology_issues = _check_ontology_alignment(mapping, graph_a, graph_b)
+            if not ontology_ok:
+                hypothesis = ValidatedHypothesis(
+                    mapping=mapping,
+                    is_consistent=False,
+                    issues=ontology_issues,
+                    confidence=0.0,
+                )
+            else:
+                hypothesis = _run_async(critic.process(mapping))
             if use_queue and log_queue is not None:
                 _drain_and_show(log_queue, log_placeholder, log_buffer)
+            _milestone(
+                f"Critic: Confidence {hypothesis.confidence:.2f}, "
+                f"consistency {'PASS' if hypothesis.is_consistent else 'REFINE'}"
+            )
 
             if (not hypothesis.is_consistent) or (hypothesis.confidence < 0.8):
+                _milestone("Critic: Triggering refinement loop (Matcher + Critic)...")
                 refined_mapping = _run_async(
                     matcher.process(
                         {
@@ -403,16 +475,34 @@ def run_pipeline(
                         }
                     )
                 )
-                final_hypothesis = _run_async(critic.process(refined_mapping))
+                ref_ontology_ok, ref_ontology_issues = _check_ontology_alignment(
+                    refined_mapping, graph_a, graph_b
+                )
+                if not ref_ontology_ok:
+                    final_hypothesis = ValidatedHypothesis(
+                        mapping=refined_mapping,
+                        is_consistent=False,
+                        issues=ref_ontology_issues,
+                        confidence=0.0,
+                    )
+                else:
+                    final_hypothesis = _run_async(critic.process(refined_mapping))
                 if use_queue and log_queue is not None:
                     _drain_and_show(log_queue, log_placeholder, log_buffer)
+                _milestone(
+                    f"Critic: After refinement — confidence {final_hypothesis.confidence:.2f}, "
+                    f"consistency {'PASS' if final_hypothesis.is_consistent else 'FAIL'}"
+                )
             else:
                 final_hypothesis = hypothesis
 
             status.update(label="Synthesizing...", state="running")
+            _milestone("Architect: Generating research report and action plan...")
             report = _run_async(architect.process(final_hypothesis))
             if use_queue and log_queue is not None:
                 _drain_and_show(log_queue, log_placeholder, log_buffer)
+            n_mech = len(report.action_plan.transferable_mechanisms)
+            _milestone(f"Architect: Report ready — {n_mech} transferable mechanisms")
 
     report.properties["graph_a"] = graph_a.model_dump()
     report.properties["graph_b"] = graph_b.model_dump()
@@ -428,24 +518,68 @@ def run_pipeline(
 def main() -> None:
     st.set_page_config(
         page_title="Analogy-Engine",
-        page_icon="",
+        page_icon="🔬",
         layout="wide",
+        initial_sidebar_state="expanded",
+    )
+    # Lock sidebar width: prevent closing completely or opening too wide
+    st.markdown(
+        """
+        <style>
+        [data-testid="stSidebar"][aria-expanded="true"] {
+            min-width: 300px;
+            max-width: 380px;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
     )
     init_session_state()
 
     try:
         get_config()
     except Exception as e:
-        st.error(f"Configuration error: {e}. Set AZURE_OPENAI_API_KEY and AZURE_OPENAI_ENDPOINT.")
+        st.error(
+            f"Configuration error: {e}. Set MONGODB_URI in .env. "
+            "For Live mode, provide your Azure OpenAI API key and endpoint in the sidebar."
+        )
         st.stop()
 
     librarian = Librarian()
-    all_reports = librarian.get_all_reports()
-    all_reports = list(reversed(all_reports))  # most recent first
+    all_reports = librarian.get_all_reports()  # newest first
 
     with st.sidebar:
+        st.markdown("### 🔬 Analogy-Engine")
+        st.caption("AI Research Workbench")
+        st.divider()
+        st.subheader("Azure OpenAI Configuration")
+        st.text_input(
+            "API Key",
+            type="password",
+            key="user_api_key",
+            help="Azure OpenAI key for Live mode.",
+        )
+        st.text_input(
+            "Endpoint URL",
+            key="user_endpoint",
+            placeholder="https://xxx.openai.azure.com/",
+        )
+        st.selectbox(
+            "Deployment",
+            ["gpt-4o", "gpt-4", "gpt-35-turbo"],
+            index=0,
+            key="user_deployment",
+        )
+        st.info("Recommended model: GPT-4o for optimal results")
+        st.divider()
         if st.button("➕ New research", use_container_width=True, key="btn_new_search"):
-            for k in [KEY_ACTIVE_REPORT, "dual_source", "dual_target", "researcher_problem"]:
+            for k in [
+                KEY_ACTIVE_REPORT,
+                KEY_ACTIVE_REPORT_ID,
+                "dual_source",
+                "dual_target",
+                "researcher_problem",
+            ]:
                 if k in st.session_state:
                     del st.session_state[k]
             st.rerun()
@@ -454,30 +588,45 @@ def main() -> None:
         st.metric("Total Reports", len(all_reports))
         st.divider()
         if all_reports:
-            st.caption("Cliquez sur un rapport pour l'afficher.")
-            for i, (report, meta) in enumerate(all_reports):
+            st.caption("Click a report to view. Use the delete button to remove it.")
+            for i, (report, meta, doc_id) in enumerate(all_reports):
                 stored = meta.stored_at
                 ts = (
                     stored.strftime("%Y-%m-%d %H:%M")
                     if hasattr(stored, "strftime")
                     else str(stored)[:19]
                 )
-                raw_query = report.input_query or report.summary or "(sans requête)"
+                raw_query = report.input_query or report.summary or "(no query)"
                 query_display = raw_query[:45] + ("..." if len(raw_query) > 45 else "")
-                label = f"{ts} — {query_display}"
-                if st.button(label, key=f"kb_load_{i}", use_container_width=True):
-                    report_dict = report.model_dump(mode="json")
-                    props = report_dict.get("properties") or {}
-                    if "stored_at" not in props and meta.stored_at:
-                        stored_val = meta.stored_at
-                        props["stored_at"] = (
-                            stored_val.isoformat()
-                            if hasattr(stored_val, "isoformat")
-                            else str(stored_val)
-                        )
-                    report_dict["properties"] = props
-                    st.session_state[KEY_ACTIVE_REPORT] = report_dict
-                    st.rerun()
+                col_btn, col_del = st.columns([4, 1])
+                with col_btn:
+                    if st.button(
+                        f"{ts} — {query_display}",
+                        key=f"kb_load_{i}",
+                        use_container_width=True,
+                    ):
+                        report_dict = report.model_dump(mode="json")
+                        props = report_dict.get("properties") or {}
+                        if "stored_at" not in props and meta.stored_at:
+                            stored_val = meta.stored_at
+                            props["stored_at"] = (
+                                stored_val.isoformat()
+                                if hasattr(stored_val, "isoformat")
+                                else str(stored_val)
+                            )
+                        report_dict["properties"] = props
+                        st.session_state[KEY_ACTIVE_REPORT] = report_dict
+                        st.session_state[KEY_ACTIVE_REPORT_ID] = doc_id
+                        st.rerun()
+                with col_del:
+                    if st.button("🗑", key=f"kb_del_{i}", help="Delete this report"):
+                        if librarian.delete_report(doc_id):
+                            if st.session_state.get(KEY_ACTIVE_REPORT_ID) == doc_id:
+                                del st.session_state[KEY_ACTIVE_REPORT]
+                                del st.session_state[KEY_ACTIVE_REPORT_ID]
+                            st.rerun()
+                        else:
+                            st.error("Could not delete report.")
         else:
             st.caption("No past analogies yet. Run an analysis to build the knowledge base.")
 
@@ -499,6 +648,15 @@ def main() -> None:
             key="filter_noise",
         )
 
+    has_api_key = bool((st.session_state.get("user_api_key") or "").strip())
+    has_endpoint = bool((st.session_state.get("user_endpoint") or "").strip())
+    try:
+        config = get_config()
+        has_keys_from_env = bool(config.AZURE_OPENAI_API_KEY and config.AZURE_OPENAI_ENDPOINT)
+    except Exception:
+        has_keys_from_env = False
+    is_live_mode = (has_api_key and has_endpoint) or has_keys_from_env
+
     active_raw = st.session_state.get(KEY_ACTIVE_REPORT)
     if active_raw is not None:
         try:
@@ -508,143 +666,12 @@ def main() -> None:
     else:
         active_report = None
 
-    if active_report is None:
-        # Generation Hub
-        st.title("Analogy-Engine: AI Research Workbench")
-        st.markdown(
-            "Compare two domains (e.g. hydraulics vs. electronics), or use Researcher Mode "
-            "to discover analogies for your problem."
-        )
-        st.divider()
-
-        tab_dual, tab_researcher = st.tabs(["Dual Domain", "Researcher Mode"])
-
-        with tab_dual:
-            st.subheader("Dual Domain")
-            st.caption("Enter a source and a target domain to find the analogy between them.")
-            text_source = st.text_area(
-                "Source Domain",
-                value=DEFAULT_SOURCE,
-                height=100,
-                help="Text describing the source domain.",
-                key="dual_source",
-            )
-            text_target = st.text_area(
-                "Target Domain",
-                value=DEFAULT_TARGET,
-                height=100,
-                help="Text describing the target domain.",
-                key="dual_target",
-            )
-
-            if st.button("Launch Analysis", key="btn_dual"):
-                st.info("⏳ Lancement de l'analyse… (2 à 5 minutes selon les appels API)")
-                with st.expander("📝 Reasoning Process", expanded=True):
-                    log_area = st.empty()
-                log_queue_dual: queue.Queue[str] = queue.Queue()
-                ctx = get_script_run_ctx() if get_script_run_ctx is not None else None
-                original_start = threading.Thread.start
-                if ctx is not None and add_script_run_ctx is not None:
-
-                    def _patched_start(self: threading.Thread) -> None:
-                        add_script_run_ctx(self, ctx)
-                        original_start(self)
-
-                    threading.Thread.start = _patched_start  # type: ignore[method-assign]
-                try:
-                    run_pipeline(
-                        text_source.strip() or DEFAULT_SOURCE,
-                        text_target.strip() or DEFAULT_TARGET,
-                        filter_academic=st.session_state.get("filter_academic", False),
-                        filter_rd=st.session_state.get("filter_rd", False),
-                        filter_noise=st.session_state.get("filter_noise", True),
-                        log_placeholder=log_area,
-                        log_queue=log_queue_dual,
-                    )
-                    st.rerun()
-                except Exception as e:
-                    st.error(str(e))
-                    with st.expander("Détails de l'erreur"):
-                        st.code(traceback.format_exc(), language="text")
-                finally:
-                    threading.Thread.start = original_start  # type: ignore[method-assign]
-
-        with tab_researcher:
-            st.subheader("Researcher Mode")
-            st.caption(
-                "Describe your problem; the Visionary will suggest a far-removed source domain, "
-                "then the full pipeline runs to build the analogy."
-            )
-            problem_text = st.text_area(
-                "Describe your current problem or research topic",
-                value="",
-                height=120,
-                placeholder=(
-                    "Comment transférer instantanément l'information entre deux points "
-                    "distants sans support physique ?"
-                ),
-                help=(
-                    "Formulez en concepts (sujet, objectif, phénomène) pour de meilleurs résultats."
-                ),
-                key="researcher_problem",
-            )
-
-            if st.button("Discover Analogies", key="btn_researcher"):
-                problem = problem_text.strip()
-                if not problem:
-                    st.warning("Please describe your problem or research topic.")
-                else:
-                    st.info("⏳ Lancement de l'analyse… (2 à 5 minutes selon les appels API)")
-                    with st.expander("📝 Reasoning Process", expanded=True):
-                        log_area_res = st.empty()
-                    log_queue_res: queue.Queue[str] = queue.Queue()
-                    ctx = get_script_run_ctx() if get_script_run_ctx is not None else None
-                    original_start = threading.Thread.start
-                    if ctx is not None and add_script_run_ctx is not None:
-
-                        def _patched_start_res(self: threading.Thread) -> None:
-                            add_script_run_ctx(self, ctx)
-                            original_start(self)
-
-                        threading.Thread.start = _patched_start_res  # type: ignore[method-assign]
-                    try:
-                        get_config()
-                        llm_config = build_llm_config()
-                        visionary = Visionary(llm_config=llm_config)
-                        writer_res = QueueLogWriter(log_queue_res)
-                        with (
-                            contextlib.redirect_stdout(writer_res),
-                            contextlib.redirect_stderr(writer_res),
-                        ):
-                            with st.status("Visionary suggesting source domain...", expanded=True):
-                                suggested_source = _run_async(visionary.process(problem))
-                        if suggested_source:
-                            st.info(f"**Visionary suggests looking at:** {suggested_source}")
-                            run_pipeline(
-                                suggested_source,
-                                problem,
-                                filter_academic=st.session_state.get("filter_academic", False),
-                                filter_rd=st.session_state.get("filter_rd", False),
-                                filter_noise=st.session_state.get("filter_noise", True),
-                                log_placeholder=log_area_res,
-                                log_queue=log_queue_res,
-                            )
-                            st.rerun()
-                        else:
-                            st.error("Visionary did not return a source suggestion.")
-                    except Exception as e:
-                        st.error(str(e))
-                        with st.expander("Détails de l'erreur"):
-                            st.code(traceback.format_exc(), language="text")
-                    finally:
-                        threading.Thread.start = original_start  # type: ignore[method-assign]
-
-    else:
+    if active_report is not None:
         # Report Viewer
-        query_display = active_report.input_query or "(sans requête)"
+        query_display = active_report.input_query or "(no query)"
         if len(query_display) > 100:
             query_display = query_display[:97] + "..."
-        st.header(f"🔍 {query_display}")
+        st.header(f"Report: {query_display}")
         stored_at_raw = active_report.properties.get("stored_at", "")
         if stored_at_raw:
             stored_at_str = (
@@ -652,9 +679,18 @@ def main() -> None:
                 if isinstance(stored_at_raw, str)
                 else str(stored_at_raw)[:19]
             )
-            st.caption(f"Rapport généré le {stored_at_str}")
+            st.caption(f"Generated on {stored_at_str}")
         else:
-            st.caption("(date inconnue)")
+            st.caption("(date unknown)")
+        active_report_id = st.session_state.get(KEY_ACTIVE_REPORT_ID)
+        if active_report_id is not None:
+            if st.button("Delete this report", type="secondary", key="btn_delete_report"):
+                if librarian.delete_report(active_report_id):
+                    del st.session_state[KEY_ACTIVE_REPORT]
+                    del st.session_state[KEY_ACTIVE_REPORT_ID]
+                    st.rerun()
+                else:
+                    st.error("Could not delete report.")
         st.divider()
         # Redraw the graph from stored trace (graph_a, graph_b) so we don't depend on saved images
         map_path = Path("assets/maps/current_display.png")
@@ -672,7 +708,7 @@ def main() -> None:
         )
         st.divider()
         include_sources = st.checkbox(
-            "Inclure les sources dans l'export (PDF/Markdown)",
+            "Include sources in export (PDF/Markdown)",
             value=False,
             key="include_sources",
         )
@@ -733,12 +769,238 @@ def main() -> None:
                 if not ap.potential_pitfalls:
                     st.write("(none)")
 
-        with st.expander("📚 Voir les sources utilisées", expanded=False):
+        with st.expander("Sources", expanded=False):
             if active_report.sources:
                 for url in active_report.sources:
                     st.markdown(f"- [{url}]({url})")
             else:
-                st.caption("(aucune source collectée)")
+                st.caption("(no sources collected)")
+
+    elif not is_live_mode:
+        # Demo/Archive Mode: pre-generated examples only
+        st.warning(
+            "Demo/Archive Mode: You are viewing pre-generated examples. "
+            "Enter your Azure OpenAI API key and endpoint in the sidebar to activate Live mode."
+        )
+        st.title("Analogy-Engine: AI Research Workbench")
+        st.subheader("Analogy Examples")
+        st.caption(
+            "High-quality scientific analogies. Provide your API credentials in the sidebar to generate new ones."
+        )
+        st.divider()
+        examples = get_existing_data()
+        for ex in examples:
+            with st.container():
+                st.subheader(ex.input_query or "Analogy")
+                st.write(f"**Confidence:** {ex.hypothesis.confidence:.2f}")
+                st.write(f"**Summary:** {ex.summary or 'N/A'}")
+                with st.expander("View details"):
+                    st.write("**Findings**")
+                    for f in ex.findings:
+                        st.write(f"- {f}")
+                    st.write("**Recommendation**")
+                    st.write(ex.recommendation or "N/A")
+                    st.write("**Transferable Mechanisms**")
+                    for m in ex.action_plan.transferable_mechanisms:
+                        st.write(f"- {m}")
+                    st.write("**Technical Roadmap**")
+                    for i, step in enumerate(ex.action_plan.technical_roadmap, 1):
+                        st.write(f"{i}. {step}")
+                    if ex.sources:
+                        st.write("**Sources**")
+                        for url in ex.sources:
+                            st.markdown(f"- [{url}]({url})")
+                st.divider()
+
+    else:
+        # Live Mode: Generation + Demo examples (keys from .env or sidebar)
+        st.success("Live Mode activated: Analogy generation available")
+        if has_keys_from_env and not (has_api_key and has_endpoint):
+            st.caption("Using API keys from .env (local). You can also view demo examples below.")
+        st.divider()
+        st.subheader("Multi-Agent Reasoning Console")
+        st.caption(
+            "Watch the AI agents collaborate in real-time (Scout → Matcher → Critic → Architect)"
+        )
+        with st.expander("Agent Activity Log", expanded=False):
+            agent_log_placeholder = st.empty()
+        agent_milestone_queue: queue.Queue[str] = queue.Queue()
+
+        tab_generate, tab_examples = st.tabs(["Generate", "Examples"])
+
+        with tab_examples:
+            st.subheader("Analogy Examples")
+            st.caption(
+                "Pre-generated scientific analogies. Use the Generate tab to create new reports."
+            )
+            st.divider()
+            examples = get_existing_data()
+            for ex in examples:
+                with st.container():
+                    st.subheader(ex.input_query or "Analogy")
+                    st.write(f"**Confidence:** {ex.hypothesis.confidence:.2f}")
+                    st.write(f"**Summary:** {ex.summary or 'N/A'}")
+                    with st.expander("View details"):
+                        st.write("**Findings**")
+                        for f in ex.findings:
+                            st.write(f"- {f}")
+                        st.write("**Recommendation**")
+                        st.write(ex.recommendation or "N/A")
+                        st.write("**Transferable Mechanisms**")
+                        for m in ex.action_plan.transferable_mechanisms:
+                            st.write(f"- {m}")
+                        st.write("**Technical Roadmap**")
+                        for i, step in enumerate(ex.action_plan.technical_roadmap, 1):
+                            st.write(f"{i}. {step}")
+                        if ex.sources:
+                            st.write("**Sources**")
+                            for url in ex.sources:
+                                st.markdown(f"- [{url}]({url})")
+                    st.divider()
+
+        with tab_generate:
+            st.title("Analogy-Engine: AI Research Workbench")
+            st.markdown(
+                "Compare two domains (e.g. hydraulics vs. electronics), or use Researcher Mode "
+                "to discover analogies for your problem. Click **New research** in the sidebar to start."
+            )
+            st.divider()
+
+            tab_dual, tab_researcher = st.tabs(["Dual Domain", "Researcher Mode"])
+
+            with tab_dual:
+                st.subheader("Dual Domain")
+                st.caption("Enter a source and a target domain to find the analogy between them.")
+                text_source = st.text_area(
+                    "Source Domain",
+                    value=DEFAULT_SOURCE,
+                    height=100,
+                    help="Text describing the source domain.",
+                    key="dual_source",
+                )
+                text_target = st.text_area(
+                    "Target Domain",
+                    value=DEFAULT_TARGET,
+                    height=100,
+                    help="Text describing the target domain.",
+                    key="dual_target",
+                )
+
+                if st.button("Launch Analysis", key="btn_dual"):
+                    try:
+                        llm_config = _get_live_llm_config()
+                    except ValueError as e:
+                        st.error(f"Configuration: {e}")
+                        st.stop()
+                    st.info("Analysis running… (2–5 minutes depending on API calls)")
+                    with st.expander("Reasoning Process", expanded=True):
+                        log_area = st.empty()
+                    log_queue_dual: queue.Queue[str] = queue.Queue()
+                    ctx = get_script_run_ctx() if get_script_run_ctx is not None else None
+                    original_start = threading.Thread.start
+                    if ctx is not None and add_script_run_ctx is not None:
+
+                        def _patched_start(self: threading.Thread) -> None:
+                            add_script_run_ctx(self, ctx)
+                            original_start(self)
+
+                        threading.Thread.start = _patched_start  # type: ignore[method-assign]
+                    try:
+                        run_pipeline(
+                            llm_config,
+                            text_source.strip() or DEFAULT_SOURCE,
+                            text_target.strip() or DEFAULT_TARGET,
+                            filter_academic=st.session_state.get("filter_academic", False),
+                            filter_rd=st.session_state.get("filter_rd", False),
+                            filter_noise=st.session_state.get("filter_noise", True),
+                            log_placeholder=log_area,
+                            log_queue=log_queue_dual,
+                            milestone_placeholder=agent_log_placeholder,
+                            milestone_queue=agent_milestone_queue,
+                        )
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Authentication error: Check your API key and endpoint. {e}")
+                        with st.expander("Error details"):
+                            st.code(traceback.format_exc(), language="text")
+                    finally:
+                        threading.Thread.start = original_start  # type: ignore[method-assign]
+
+            with tab_researcher:
+                st.subheader("Researcher Mode")
+                st.caption(
+                    "Describe your problem; the Visionary will suggest a far-removed source domain, "
+                    "then the full pipeline runs to build the analogy."
+                )
+                problem_text = st.text_area(
+                    "Describe your current problem or research topic",
+                    value="",
+                    height=120,
+                    placeholder=(
+                        "How to transfer information instantly between two distant points "
+                        "without a physical medium?"
+                    ),
+                    help="Use concepts (subject, goal, phenomenon) for better results.",
+                    key="researcher_problem",
+                )
+
+                if st.button("Discover Analogies", key="btn_researcher"):
+                    problem = problem_text.strip()
+                    if not problem:
+                        st.warning("Please describe your problem or research topic.")
+                    else:
+                        try:
+                            llm_config = _get_live_llm_config()
+                        except ValueError as e:
+                            st.error(f"Configuration: {e}")
+                            st.stop()
+                        st.info("Analysis running… (2–5 minutes depending on API calls)")
+                        with st.expander("Reasoning Process", expanded=True):
+                            log_area_res = st.empty()
+                        log_queue_res: queue.Queue[str] = queue.Queue()
+                        ctx = get_script_run_ctx() if get_script_run_ctx is not None else None
+                        original_start = threading.Thread.start
+                        if ctx is not None and add_script_run_ctx is not None:
+
+                            def _patched_start_res(self: threading.Thread) -> None:
+                                add_script_run_ctx(self, ctx)
+                                original_start(self)
+
+                            threading.Thread.start = _patched_start_res  # type: ignore[method-assign]
+                        try:
+                            visionary = Visionary(llm_config=llm_config)
+                            writer_res = QueueLogWriter(log_queue_res)
+                            with (
+                                contextlib.redirect_stdout(writer_res),
+                                contextlib.redirect_stderr(writer_res),
+                            ):
+                                with st.status(
+                                    "Visionary suggesting source domain...", expanded=True
+                                ):
+                                    suggested_source = _run_async(visionary.process(problem))
+                            if suggested_source:
+                                st.info(f"**Visionary suggests looking at:** {suggested_source}")
+                                run_pipeline(
+                                    llm_config,
+                                    suggested_source,
+                                    problem,
+                                    filter_academic=st.session_state.get("filter_academic", False),
+                                    filter_rd=st.session_state.get("filter_rd", False),
+                                    filter_noise=st.session_state.get("filter_noise", True),
+                                    log_placeholder=log_area_res,
+                                    log_queue=log_queue_res,
+                                    milestone_placeholder=agent_log_placeholder,
+                                    milestone_queue=agent_milestone_queue,
+                                )
+                                st.rerun()
+                            else:
+                                st.error("Visionary did not return a source suggestion.")
+                        except Exception as e:
+                            st.error(f"Authentication error: Check your API key and endpoint. {e}")
+                            with st.expander("Error details"):
+                                st.code(traceback.format_exc(), language="text")
+                        finally:
+                            threading.Thread.start = original_start  # type: ignore[method-assign]
 
 
 if __name__ == "__main__":

@@ -31,6 +31,37 @@
 
 ---
 
+## Quick Start / Demo
+
+**Don't have an Azure OpenAI key?** No problem!
+
+The application opens by default in **Archive/Demo Mode**, allowing you to explore pre-generated scientific analogy examples without any configuration required.
+
+### Launch Demo Mode
+
+1. Clone the repository and install dependencies (see below).
+2. Configure only MongoDB in `.env`:
+   ```bash
+   MONGODB_URI="mongodb+srv://..."
+   ```
+3. Launch the application:
+   ```bash
+   streamlit run app.py
+   ```
+4. The interface opens in Demo Mode with browsable examples.
+
+### Switch to Live Mode
+
+To generate new analogies, enter your Azure OpenAI credentials in the sidebar:
+
+- **API Key**: Your Azure OpenAI key
+- **Endpoint**: Your Azure resource URL (e.g. `https://xxx.openai.azure.com/`)
+- **Recommended model**: GPT-4o
+
+Once validated, Live mode activates instantly and unlocks generation features.
+
+---
+
 ## Tech Stack
 
 <p align="center">
@@ -48,7 +79,7 @@
 
 | Layer | Technology |
 |-------|------------|
-| **AI / Agents** | [AutoGen](https://microsoft.github.io/autogen/) (Microsoft), Azure OpenAI, GPT-4 |
+| **AI / Agents** | [AutoGen](https://microsoft.github.io/autogen/) (Microsoft), Azure OpenAI, GPT-4o |
 | **Backend** | Python 3.10+, Pydantic, asyncio |
 | **Database** | MongoDB Atlas (PyMongo) |
 | **UI** | Streamlit |
@@ -62,9 +93,19 @@
 
 ## Prerequisites
 
+### Required (all modes)
+
 - **Python 3.10+**
-- **Azure OpenAI account** (API key + endpoint)
-- **MongoDB Atlas** (free tier) or another MongoDB cluster
+- **MongoDB Atlas** (free tier) or MongoDB cluster
+
+### Required (Live Mode only)
+
+- **Azure OpenAI account** with:
+  - Valid API key
+  - Configured endpoint
+  - **GPT-4o** model deployment (recommended)
+
+**Important:** The **GPT-4o** model is the supported and optimized model for this application. Other models (GPT-4, GPT-3.5) may work but with variable results.
 
 ---
 
@@ -105,6 +146,8 @@ Edit `.env` and fill in the values:
 | `AZURE_OPENAI_ENDPOINT` | Endpoint URL (e.g. `https://xxx.openai.azure.com/`) |
 | `AZURE_OPENAI_DEPLOYMENT_NAME` | Deployment name (e.g. `gpt-4o`) |
 | `MONGODB_URI` | MongoDB connection string (e.g. `mongodb+srv://user:pass@cluster.mongodb.net/`) |
+
+**Note:** In Demo Mode, only `MONGODB_URI` is required. Azure OpenAI keys can be provided via the sidebar interface at usage time.
 
 ### 5. Run the application
 
@@ -178,6 +221,18 @@ Report history with search by query and date.
 | **Visionary** | (Researcher Mode) Suggests a source domain for a given problem |
 | **Librarian** | Stores and retrieves reports in MongoDB |
 
+### Multi-Agent Reasoning Console
+
+In Live Mode, watch the AI agents collaborate in real-time through the Reasoning Console:
+
+- **Scout**: Extracts logical property graphs from domain descriptions
+- **Matcher**: Aligns nodes between source and target domains
+- **Critic**: Validates mapping consistency and confidence
+- **Architect**: Synthesizes the research report and action plan
+- **Visionary**: (Researcher Mode) Suggests far-removed source domains
+
+The system implements an adaptive refinement loop: if the Critic detects low confidence or inconsistencies, the Matcher automatically refines the mapping with feedback integration.
+
 ---
 
 ## Project Structure
@@ -185,6 +240,7 @@ Report history with search by query and date.
 ```
 Analogy-Engine/
 ├── app.py                 # Streamlit UI (interface + pipeline)
+├── data_manager.py        # Static demo data for Archive/Demo mode
 ├── main.py                # Alternative entry point
 ├── requirements.txt       # Python dependencies
 ├── .env.example           # Configuration template (no secrets)
@@ -208,6 +264,8 @@ Analogy-Engine/
 │   └── check_docs.py          # Documentation checks
 ├── config/
 │   └── pre-commit-config.yaml
+├── docs/
+│   └── TEST_QUERIES.md   # English test prompts for both modes
 └── .github/workflows/
     └── quality.yml        # CI (ruff, mypy, pip-audit)
 ```
@@ -215,6 +273,8 @@ Analogy-Engine/
 ---
 
 ## Example Queries (Doctoral Level)
+
+See **[docs/TEST_QUERIES.md](docs/TEST_QUERIES.md)** for a full list of English test prompts for both modes.
 
 ### Dual Domain Mode
 
@@ -225,6 +285,23 @@ Analogy-Engine/
 
 - *Which principles from natural ecosystems (resilience, redundancy, emergence) can be formally transferred to the design of fault-tolerant, self-organizing distributed systems?*
 - *How can immune memory mechanisms (clonal selection, adaptive memory) inspire anomaly detection and cyberdefense architectures with continuous learning?*
+
+---
+
+## Unit Tests
+
+Run the test suite with pytest:
+
+```bash
+pip install -r requirements.txt
+pytest tests/ -v
+```
+
+Tests cover:
+
+- **data_manager**: `get_existing_data()`, structure of `EXISTING_DATA`
+- **core.config**: `build_llm_config_from_input()` (validation, stripping, custom deployment)
+- **agents.librarian**: `delete_report()`, `get_all_reports()` return type (with mocked MongoDB)
 
 ---
 
@@ -250,7 +327,7 @@ pre-commit install --config config/pre-commit-config.yaml
 | Issue | Solution |
 |-------|----------|
 | `externally-managed-environment` with `pip` | Use the venv: `.venv/bin/pip install -r requirements.txt` |
-| `Configuration error` on launch | Ensure `.env` exists and contains `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_ENDPOINT`, `MONGODB_URI` |
+| `Configuration error` on launch | Ensure `.env` exists and contains `MONGODB_URI`. For Live mode, add Azure OpenAI key and endpoint in the sidebar (or in `.env`) |
 | `(no sources collected)` | Check internet connection; very long queries are automatically truncated |
 | Pre-commit blocks commit | Use `PRE_COMMIT_ALLOW_NO_CONFIG=1 git commit ...` or install `pre-commit` with the project config |
 

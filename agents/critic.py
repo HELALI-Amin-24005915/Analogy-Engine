@@ -24,17 +24,21 @@ except ImportError:  # pragma: no cover - import-time fallback
 CRITIC_SYSTEM_PROMPT = """You are the Critic. Your mission is to evaluate the logical consistency
 of the AnalogyMapping provided by the Matcher.
 
+You MUST REJECT (set is_consistent to false and list in issues) if ANY node_match has a categorical
+mismatch: source_ontology and target_ontology must be identical (STRUCTURE<->STRUCTURE, FUNCTION<->FUNCTION,
+ATTRIBUTE<->ATTRIBUTE only). If you see e.g. STRUCTURE mapped to FUNCTION, or source_ontology != target_ontology
+for any pair, reject and report explicitly: "Categorical mismatch: [X] (source) mapped to [Y] (target) for node ...".
+
 Check for:
-1. Structural Isomorphism: Do the connected nodes play the same role
-   (e.g., both are causes or both are effects)?
-2. Functional Plausibility: Does each mapping 'source -> target'
-   make sense for a human?
+1. Ontological alignment: For each node_match, source_ontology MUST equal target_ontology.
+2. Structural Isomorphism: Do the connected nodes play the same role (e.g., both are causes or both are effects)?
+3. Functional Plausibility: Does each mapping 'source -> target' make sense for a human?
 
 OUTPUT FORMAT:
 Return ONLY a JSON object with the following fields:
 {
   "is_consistent": true or false,
-  "issues": ["list of specific logical flaws"],
+  "issues": ["list of specific logical flaws or categorical mismatches"],
   "confidence": 0.0
 }
 
@@ -172,6 +176,17 @@ class Critic(BaseAgent):
             confidence = float(obj.get("confidence", 0.0))
         except (TypeError, ValueError, ValidationError):  # pragma: no cover - defensive
             return fallback
+
+        # Programmatic reinforcement: reject on categorical mismatch if source_ontology != target_ontology
+        for i, match in enumerate(mapping.node_matches):
+            src_ont = match.source_ontology
+            tgt_ont = match.target_ontology
+            if src_ont is not None and tgt_ont is not None and src_ont != tgt_ont:
+                is_consistent = False
+                issues.append(
+                    f"Categorical mismatch: [{src_ont}] (source) mapped to [{tgt_ont}] (target) "
+                    f"for match {i} (source_id={match.source_id}, target_id={match.target_id})."
+                )
 
         return ValidatedHypothesis(
             mapping=mapping,
