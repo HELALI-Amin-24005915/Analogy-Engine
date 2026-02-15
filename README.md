@@ -209,6 +209,34 @@ Report history with search by query and date.
 
 ---
 
+## 🏗️ System Architecture
+
+Analogy-Engine uses a Pipe-and-Filter multi-agent pipeline (Scout, Matcher, Critic, Architect) that respects a Triple-Layer Ontology and an optional refinement loop until the Critic accepts the mapping.
+
+[View Detailed Architecture & Agent Flow](./docs/ARCHITECTURE.md)
+
+High-level context: the user interacts with the Streamlit UI, which orchestrates the agents via Azure OpenAI (GPT-4o), stores reports in MongoDB Atlas, and collects sources via DuckDuckGo.
+
+```mermaid
+flowchart LR
+    User["User (Browser)"]
+    subgraph SystemBoundary["Analogy-Engine"]
+        StreamlitUI["Streamlit UI"]
+        AzureOpenAI["Azure OpenAI\n(GPT-4o)"]
+        MongoDBAtlas["MongoDB Atlas\n(Knowledge Base)"]
+        DuckDuckGo["DuckDuckGo\n(Search)"]
+    end
+
+    User <-->|"HTTP"| StreamlitUI
+    StreamlitUI -->|"LLM calls"| AzureOpenAI
+    AzureOpenAI -->|"responses"| StreamlitUI
+    StreamlitUI <-->|"store / retrieve reports"| MongoDBAtlas
+    StreamlitUI -->|"source search"| DuckDuckGo
+    DuckDuckGo -->|"URLs"| StreamlitUI
+```
+
+---
+
 ## Architecture
 
 ```

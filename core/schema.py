@@ -2,7 +2,9 @@
 Canonical data contracts for the Pipe and Filter pipeline.
 
 All data flowing between filters (Scout -> Matcher -> Critic -> Architect)
-is strictly typed with Pydantic V2 models.
+is strictly typed with Pydantic V2 models. The Triple-Layer Ontology
+(STRUCTURE, FUNCTION, ATTRIBUTE) is enforced via LogicNode.node_type and
+NodeMatch.source_ontology/target_ontology.
 """
 
 from datetime import datetime
@@ -15,7 +17,11 @@ NodeTypeLiteral = Literal["STRUCTURE", "FUNCTION", "ATTRIBUTE"]
 
 
 class LogicNode(BaseModel):
-    """Single node in a logical property graph."""
+    """Single node in a logical property graph (Scout output).
+
+    Each node has an ontological type (Triple-Layer): STRUCTURE, FUNCTION, or
+    ATTRIBUTE. Used in LogicalPropertyGraph for alignment by the Matcher.
+    """
 
     id: str = Field(..., description="Unique identifier for the node.")
     label: str = Field(..., description="Human-readable label.")
@@ -27,7 +33,11 @@ class LogicNode(BaseModel):
 
 
 class LogicEdge(BaseModel):
-    """Directed edge between two logic nodes."""
+    """Directed edge between two logic nodes.
+
+    Represents a logical relation (e.g. causes, enables) between two nodes
+    in a LogicalPropertyGraph.
+    """
 
     source: str = Field(..., description="Id of the source node.")
     target: str = Field(..., description="Id of the target node.")
@@ -36,14 +46,22 @@ class LogicEdge(BaseModel):
 
 
 class LogicalPropertyGraph(BaseModel):
-    """Graph of logical structures extracted from text (Scout output)."""
+    """Graph of logical structures extracted from text (Scout output).
+
+    Pipeline contract: Scout produces one graph per domain; Matcher consumes
+    two graphs and produces AnalogyMapping.
+    """
 
     nodes: list[LogicNode] = Field(default_factory=list, description="Nodes of the graph.")
     edges: list[LogicEdge] = Field(default_factory=list, description="Edges of the graph.")
 
 
 class NodeMatch(BaseModel):
-    """Matches a node from the source graph to a node in the target graph."""
+    """Matches a node from the source graph to a node in the target graph.
+
+    For Triple-Layer alignment, source_ontology and target_ontology must be
+    identical (STRUCTURE<->STRUCTURE, FUNCTION<->FUNCTION, ATTRIBUTE<->ATTRIBUTE).
+    """
 
     source_id: str = Field(..., description="ID of the node in Graph A.")
     target_id: str = Field(..., description="ID of the node in Graph B.")
@@ -59,7 +77,12 @@ class NodeMatch(BaseModel):
 
 
 class AnalogyMapping(BaseModel):
-    """Result of matching two logical graphs (Matcher output)."""
+    """Result of matching two logical graphs (Matcher output).
+
+    Contains node_matches (with source_ontology/target_ontology per pair),
+    a global explanation, and a confidence score. Consumed by Critic and
+    optionally by Matcher again during refinement.
+    """
 
     graph_a_id: str = Field(..., description="Identifier for the first graph.")
     graph_b_id: str = Field(..., description="Identifier for the second graph.")
@@ -76,7 +99,12 @@ class AnalogyMapping(BaseModel):
 
 
 class ValidatedHypothesis(BaseModel):
-    """Analogy mapping plus verification result (Critic output)."""
+    """Analogy mapping plus verification result (Critic output).
+
+    Indicates whether the mapping is consistent, lists issues (e.g. ontology
+    mismatches), and provides a confidence score. Used to decide refinement
+    and passed to Architect when accepted.
+    """
 
     mapping: AnalogyMapping = Field(..., description="The analogy mapping under validation.")
     is_consistent: bool = Field(..., description="Whether the analogy is logically consistent.")
@@ -86,7 +114,11 @@ class ValidatedHypothesis(BaseModel):
 
 
 class ActionPlan(BaseModel):
-    """Engineering action plan: transferable mechanisms, roadmap, metrics, pitfalls."""
+    """Engineering action plan: transferable mechanisms, roadmap, metrics, pitfalls.
+
+    Part of ResearchReport. Guides implementation from Source to Target domain
+    (ontology-aware: signal/state adapters, decoupling).
+    """
 
     transferable_mechanisms: list[str] = Field(
         default_factory=list,
@@ -107,7 +139,11 @@ class ActionPlan(BaseModel):
 
 
 class ResearchReport(BaseModel):
-    """Synthesis report (Architect output)."""
+    """Synthesis report (Architect output).
+
+    Combines the validated hypothesis, summary, findings, recommendation, and
+    action plan. Stored by Librarian and displayed in the UI.
+    """
 
     hypothesis: ValidatedHypothesis = Field(..., description="The validated hypothesis.")
     summary: str = Field(default="", description="Executive summary.")
@@ -129,7 +165,11 @@ class ResearchReport(BaseModel):
 
 
 class MemoryMetadata(BaseModel):
-    """Metadata for a stored analogy report (Librarian memory)."""
+    """Metadata for a stored analogy report (Librarian memory).
+
+    Tracks when the report was stored and how often it was retrieved.
+    Returned with ResearchReport by get_all_reports and search_analogies.
+    """
 
     stored_at: datetime = Field(..., description="When the report was stored.")
     frequency: int = Field(

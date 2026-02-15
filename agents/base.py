@@ -18,8 +18,11 @@ class BaseAgent(ABC):
     """
     Abstract base class for all pipeline agents (filters).
 
-    Agents receive input data and return output data; no shared internal state.
-    Configuration is injected via constructor.
+    Input/Output contract: each agent receives data (from the previous filter or
+    app) and returns a Pydantic model for the next stage. No shared internal
+    state; configuration is injected via constructor. All concrete agents
+    (Scout, Matcher, Critic, Architect, Visionary) respect the Triple-Layer
+    Ontology defined in core.ontology (STRUCTURE, FUNCTION, ATTRIBUTE).
     """
 
     @abstractmethod
@@ -28,9 +31,12 @@ class BaseAgent(ABC):
         Process input data and return the result for the next filter.
 
         Args:
-            data: Input conforming to the contract of the previous filter.
+            data: Input conforming to the contract of the previous filter
+                (e.g. str for Scout, dict with graph_a/graph_b for Matcher).
 
         Returns:
-            Output conforming to this filter's contract (Pydantic model).
+            Output conforming to this filter's contract (Pydantic model:
+            LogicalPropertyGraph, AnalogyMapping, ValidatedHypothesis,
+            ResearchReport, or str for Visionary).
         """
         ...

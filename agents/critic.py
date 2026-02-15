@@ -1,7 +1,9 @@
 """
 Critic Agent: Verification Filter.
 
-Inputs AnalogyMapping, outputs ValidatedHypothesis using an AutoGen AssistantAgent.
+Inputs AnalogyMapping; outputs ValidatedHypothesis using an AutoGen AssistantAgent.
+Rejects on categorical (ontology) mismatch: source_ontology must equal
+target_ontology for every node_match; programmatic reinforcement enforces this.
 """
 
 import asyncio
@@ -49,8 +51,11 @@ class Critic(BaseAgent):
     """
     Verification filter: AnalogyMapping -> ValidatedHypothesis.
 
-    Uses an AutoGen AssistantAgent to judge whether an analogy mapping is
-    structurally and functionally plausible.
+    Input: AnalogyMapping from the Matcher. Output: ValidatedHypothesis with
+    is_consistent, issues, and confidence. Rejects if source_ontology !=
+    target_ontology for any node_match or if confidence is below threshold;
+    programmatic reinforcement overrides LLM output on ontology mismatch.
+    Uses AutoGen AssistantAgent; LLM config is optional.
     """
 
     def __init__(self, llm_config: dict[str, Any] | None = None) -> None:
@@ -130,7 +135,15 @@ class Critic(BaseAgent):
         return self._parse_response(content, mapping)
 
     def _parse_response(self, content: str, mapping: AnalogyMapping) -> ValidatedHypothesis:
-        """Parse LLM response into a ValidatedHypothesis."""
+        """Parse LLM response into a ValidatedHypothesis.
+
+        Args:
+            content: Raw LLM response (JSON with is_consistent, issues, confidence).
+            mapping: Original AnalogyMapping to attach to the hypothesis.
+
+        Returns:
+            ValidatedHypothesis; fallback with is_consistent=False on parse failure.
+        """
         content = content.strip()
 
         # Default hypothesis if anything goes wrong

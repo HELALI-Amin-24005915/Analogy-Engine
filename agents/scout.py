@@ -1,7 +1,9 @@
 """
 Scout Agent: Abstraction Filter.
 
-Inputs raw text, outputs structured LogicalPropertyGraph using AutoGen AssistantAgent.
+Inputs raw text; outputs a structured LogicalPropertyGraph using an AutoGen
+AssistantAgent. Every node is tagged with the Triple-Layer Ontology
+(STRUCTURE, FUNCTION, or ATTRIBUTE); unknown node_type is normalized to STRUCTURE.
 """
 
 import asyncio
@@ -44,8 +46,11 @@ class Scout(BaseAgent):
     """
     Abstraction filter: raw text -> LogicalPropertyGraph.
 
-    Uses an AutoGen AssistantAgent to extract logical structures.
-    Configuration (LLM) is injected via constructor.
+    Input: raw text (str) describing a domain. Output: LogicalPropertyGraph
+    with nodes typed by the Triple-Layer Ontology (STRUCTURE, FUNCTION,
+    ATTRIBUTE). Unknown or invalid node_type from the LLM is normalized to
+    STRUCTURE. Uses an AutoGen AssistantAgent; LLM config is injected via
+    constructor.
     """
 
     def __init__(self, llm_config: dict[str, Any]) -> None:
@@ -119,14 +124,32 @@ class Scout(BaseAgent):
 
     @staticmethod
     def _to_pascal_case(s: str) -> str:
-        """Convert a label to PascalCase (e.g. 'information sharing' -> 'InformationSharing')."""
+        """Convert a label to PascalCase.
+
+        Args:
+            s: Raw label string (e.g. 'information sharing' or 'some_label').
+
+        Returns:
+            PascalCase string (e.g. 'InformationSharing').
+        """
         if not s or not s.strip():
             return s
         parts = re.sub(r"[_\s]+", " ", s.strip()).split()
         return "".join(p[:1].upper() + p[1:].lower() for p in parts if p)
 
     def _parse_graph_response(self, content: str) -> LogicalPropertyGraph:
-        """Parse LLM response string into LogicalPropertyGraph."""
+        """Parse LLM response string into LogicalPropertyGraph.
+
+        Strips markdown code fences if present. Node labels are converted to
+        PascalCase. node_type is normalized to VALID_NODE_TYPES (STRUCTURE,
+        FUNCTION, ATTRIBUTE); any other value is set to STRUCTURE.
+
+        Args:
+            content: Raw LLM response (JSON string, optionally wrapped in ```json).
+
+        Returns:
+            LogicalPropertyGraph with nodes and edges; empty graph on parse failure.
+        """
         content = content.strip()
         # Remove markdown code block if present
         if "```json" in content:

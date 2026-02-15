@@ -87,10 +87,21 @@ def check_ontology_alignment(
     graph_a: "LogicalPropertyGraph",
     graph_b: "LogicalPropertyGraph",
 ) -> tuple[bool, list[str]]:
-    """Check that every node_match aligns same ontological type (STRUCTURE/FUNCTION/ATTRIBUTE).
+    """Verify Triple-Layer Ontology alignment for every node_match.
 
-    Returns (True, []) if all pairs have matching node_type, else (False, list of issue strings).
-    Missing nodes are skipped (no issue) to avoid false positives from ID mismatches.
+    Ensures each mapped pair has the same ontological type (STRUCTURE, FUNCTION, or
+    ATTRIBUTE). Pairs whose source_id or target_id are missing from the graphs
+    are skipped to avoid false positives from ID mismatches.
+
+    Args:
+        mapping: AnalogyMapping from the Matcher (node_matches with source_id/target_id).
+        graph_a: Source domain graph (nodes keyed by id).
+        graph_b: Target domain graph (nodes keyed by id).
+
+    Returns:
+        A tuple (ok, issues). ok is True if all resolved pairs have matching
+        node_type; False otherwise. issues is a list of human-readable strings
+        describing each categorical mismatch (empty when ok is True).
     """
     from core.schema import AnalogyMapping, LogicalPropertyGraph
 

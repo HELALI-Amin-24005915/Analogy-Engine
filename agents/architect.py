@@ -3,6 +3,8 @@ Architect Agent: Research Synthesis.
 
 Transforms a validated analogy mapping into a comprehensive research report,
 translating abstract connections into concrete scientific or engineering insights.
+Uses SIGNAL_STATE_AND_DECOUPLING from core.ontology (Interface Adapter,
+decoupling of business rules from implementation).
 """
 
 import asyncio
@@ -84,7 +86,13 @@ Return ONLY a raw JSON object (no markdown, no code blocks):
 
 class Architect(BaseAgent):
     """
-    Architect Agent using AutoGen to synthesize research reports.
+    Synthesis filter: ValidatedHypothesis -> ResearchReport.
+
+    Input: ValidatedHypothesis from the Critic. Output: ResearchReport with
+    summary, findings, recommendation, and ActionPlan (transferable mechanisms,
+    technical roadmap, metrics, pitfalls). Prompt includes Interface Adapter
+    and decoupling guidance from core.ontology. Uses AutoGen AssistantAgent;
+    LLM config is optional.
     """
 
     def __init__(self, llm_config: dict[str, Any] | None = None) -> None:
@@ -168,9 +176,16 @@ class Architect(BaseAgent):
         return self._parse_response(content, hypothesis)
 
     def _parse_response(self, content: str, hypothesis: ValidatedHypothesis) -> ResearchReport:
-        """
-        Extract JSON from the LLM response and build ResearchReport.
-        Robust to markdown, leading/trailing text, and malformed JSON.
+        """Extract JSON from the LLM response and build ResearchReport.
+
+        Robust to markdown code fences, leading/trailing text, and malformed JSON.
+
+        Args:
+            content: Raw LLM response (JSON string).
+            hypothesis: ValidatedHypothesis to attach and use for fallback.
+
+        Returns:
+            ResearchReport; fallback report on parse failure.
         """
         content = (content or "").strip()
         if not content:
@@ -269,7 +284,15 @@ class Architect(BaseAgent):
     def _create_fallback_report(
         self, hypothesis: ValidatedHypothesis, reason: str
     ) -> ResearchReport:
-        """Create a safe fallback report if generation or parsing fails."""
+        """Create a safe fallback report if generation or parsing fails.
+
+        Args:
+            hypothesis: ValidatedHypothesis to attach to the report.
+            reason: Short reason for the fallback (e.g. parse failure).
+
+        Returns:
+            ResearchReport with placeholder summary and findings.
+        """
         return ResearchReport(
             hypothesis=hypothesis,
             summary=f"Automated synthesis failed. ({reason})",

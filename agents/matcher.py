@@ -1,7 +1,10 @@
 """
 Matcher Agent: Transformation Filter.
 
-Inputs Graph A & B, outputs AnalogyMapping (isomorphism search) using AutoGen.
+Inputs two LogicalPropertyGraphs; outputs AnalogyMapping (isomorphism search)
+using AutoGen. Enforces Triple-Layer alignment: only STRUCTURE<->STRUCTURE,
+FUNCTION<->FUNCTION, ATTRIBUTE<->ATTRIBUTE. Polymorphism: align by ontological
+role, not by name.
 """
 
 import asyncio
@@ -70,8 +73,11 @@ class Matcher(BaseAgent):
     """
     Transformation filter: two LogicalPropertyGraphs -> AnalogyMapping.
 
-    Uses an AutoGen AssistantAgent to identify structural correspondences
-    (nodes and edges) and provide reasoning and a global explanation.
+    Input: graph_a and graph_b (LogicalPropertyGraph). Output: AnalogyMapping
+    with node_matches that include source_ontology and target_ontology per pair;
+    only same-type alignment is allowed (STRUCTURE<->STRUCTURE, etc.). Supports
+    refinement when given previous_mapping and critic_feedback. Uses AutoGen
+    AssistantAgent; LLM config is injected via constructor.
     """
 
     def __init__(self, llm_config: dict[str, Any]) -> None:
@@ -163,7 +169,18 @@ class Matcher(BaseAgent):
         return self._parse_mapping_response(content, id_a="graph_a", id_b="graph_b")
 
     def _parse_input(self, data: Any) -> tuple[LogicalPropertyGraph, LogicalPropertyGraph]:
-        """Extract (graph_a, graph_b) from pipeline input."""
+        """Extract (graph_a, graph_b) from pipeline input.
+
+        Args:
+            data: A tuple/list (graph_a, graph_b) or a dict with keys
+                "graph_a" and "graph_b".
+
+        Returns:
+            Tuple of two LogicalPropertyGraph instances.
+
+        Raises:
+            ValueError: If data does not contain two graphs.
+        """
         if isinstance(data, (list, tuple)) and len(data) >= 2:
             raw_a, raw_b = data[0], data[1]
         elif isinstance(data, dict) and "graph_a" in data and "graph_b" in data:
@@ -176,13 +193,29 @@ class Matcher(BaseAgent):
         return graph_a, graph_b
 
     def _ensure_graph(self, value: Any) -> LogicalPropertyGraph:
-        """Normalize input to a LogicalPropertyGraph instance."""
+        """Normalize input to a LogicalPropertyGraph instance.
+
+        Args:
+            value: LogicalPropertyGraph or dict to validate.
+
+        Returns:
+            LogicalPropertyGraph (same instance or validated from dict).
+        """
         if isinstance(value, LogicalPropertyGraph):
             return value
         return LogicalPropertyGraph.model_validate(value)
 
     def _parse_mapping_response(self, content: str, id_a: str, id_b: str) -> AnalogyMapping:
-        """Parse LLM response string into AnalogyMapping."""
+        """Parse LLM response string into AnalogyMapping.
+
+        Args:
+            content: Raw LLM response (JSON string).
+            id_a: graph_a_id for fallback or parsed mapping.
+            id_b: graph_b_id for fallback or parsed mapping.
+
+        Returns:
+            AnalogyMapping with node_matches; fallback with empty matches on failure.
+        """
         content = content.strip()
 
         # Fallback mapping if anything goes wrong

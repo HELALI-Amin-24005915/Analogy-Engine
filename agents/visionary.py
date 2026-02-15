@@ -3,6 +3,8 @@ Visionary Agent: Suggests a far-removed source domain for a given target problem
 
 Given a target problem, outputs a 2-sentence description of a source domain
 (nature, history, or another science) that shares the same logical structure.
+Suggestions are framed in structures, functions, and attributes so downstream
+Scout/Matcher/Critic can align domains by Triple-Layer Ontology.
 """
 
 import asyncio
@@ -28,10 +30,12 @@ describes the key mechanism or structure that mirrors the target problem."""
 
 class Visionary(BaseAgent):
     """
-    Suggests an analogous source domain for a target problem.
+    Suggests an analogous source domain for a target problem (Researcher Mode).
 
-    Input: problem description (str).
-    Output: 2-sentence source domain description (str).
+    Input: problem description (str). Output: 2-sentence source domain
+    description (str), framed in structures, functions, and attributes for
+    downstream Triple-Layer alignment. Uses AutoGen AssistantAgent; LLM config
+    is optional.
     """
 
     def __init__(self, llm_config: dict[str, Any] | None = None) -> None:

@@ -18,16 +18,22 @@ from core.schema import MemoryMetadata, ResearchReport
 
 class Librarian:
     """
-    Service that stores and retrieves ResearchReports in MongoDB.
+    Memory service for ResearchReports (no ontology logic).
 
-    Connects to the analogy_engine database and the reports collection.
+    Connects to MongoDB (analogy_engine database, reports collection).
+    Stores and retrieves reports for the Knowledge Base UI; does not
+    depend on Triple-Layer Ontology.
     """
 
     DB_NAME = "analogy_engine"
     COLLECTION_NAME = "reports"
 
     def __init__(self) -> None:
-        """Initialize the Librarian with MongoDB connection from config."""
+        """Initialize the Librarian with MongoDB connection from config.
+
+        Raises:
+            RuntimeError: If MongoDB connection fails (MONGODB_URI or network).
+        """
         config = get_config()
         try:
             self._client: MongoClient[Any] = MongoClient(
@@ -87,8 +93,10 @@ class Librarian:
         return results
 
     def delete_report(self, doc_id: ObjectId) -> bool:
-        """
-        Delete a report by its MongoDB document id.
+        """Delete a report by its MongoDB document id.
+
+        Args:
+            doc_id: MongoDB ObjectId of the document to delete.
 
         Returns:
             True if a document was deleted, False otherwise.
