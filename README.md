@@ -91,6 +91,28 @@ Once validated, Live mode activates instantly and unlocks generation features.
 
 ---
 
+## AI-Assisted Development
+
+This project was developed using a modern **AI-assisted workflow**, combining several AI coding and reasoning tools to accelerate design, implementation, and quality assurance while keeping full control over architecture and final code.
+
+| Tool | Role in this project |
+|------|------------------------|
+| **[Cursor](https://cursor.com)** | Primary IDE. In-editor AI (composer, chat, refactors), codebase-aware suggestions, and integrated terminal. Used for implementing features from specs, navigating the repo, and applying structured changes (e.g. ontology enforcement, mypy fixes). |
+| **[GitHub Copilot](https://github.com/features/copilot)** | Inline code completion and short snippets. Used for boilerplate (Pydantic models, fixtures, Streamlit widgets), tests, and repetitive patterns. |
+| **[Claude](https://claude.ai)** (Anthropic) | Long-context reasoning and design. Used for pipeline design (Scout → Matcher → Critic → Architect), ontology taxonomy wording, and reviewing multi-file flows. |
+| **[Gemini](https://gemini.google.com)** (Google) | Alternative perspective and validation. Used for cross-checking prompts, suggesting test cases, and validating documentation clarity. |
+
+### How they were used
+
+- **Architecture & specs:** Claude and Cursor were used to turn high-level ideas (e.g. “triple-layer ontology”, “refinement loop”) into concrete plans and file-level tasks.
+- **Implementation:** Cursor (composer/agent) and Copilot handled most of the typing: agents, schema, pipeline wiring, and UI. Cursor’s codebase awareness helped keep changes consistent across modules.
+- **Quality:** MyPy and Ruff were run in CI; Cursor and Claude were used to fix type errors and align style. Gemini was occasionally used to double-check prompt and README wording.
+- **Version control:** Commits and push were done locally; branch rules (e.g. code scanning) were adjusted on GitHub so that CI and push could succeed.
+
+**Code verification, logic, review, and problem resolution are performed by the developer.** AI tools suggest or generate code; the author is responsible for verifying correctness, validating the logic, conducting code review, and resolving any issues before commit. This setup illustrates a **human-in-the-loop** approach: the developer defines the product and architecture, checks and approves all changes, and uses AI to accelerate implementation and iteration—not to replace oversight.
+
+---
+
 ## Prerequisites
 
 ### Required (all modes)
