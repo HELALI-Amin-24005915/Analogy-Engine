@@ -28,21 +28,21 @@ sequenceDiagram
     Matcher->>App: AnalogyMapping
 
     App->>App: check_ontology_alignment
-    alt ontology mismatch
-        App->>Critic: skip; hypothesis = inconsistent
-    else ontology ok
+    alt "ontology mismatch"
+        App->>Critic: skip, hypothesis inconsistent
+    else "ontology ok"
         App->>Critic: AnalogyMapping
         Critic->>App: ValidatedHypothesis
     end
 
-    loop Refinement until consistent and confidence >= 0.8
-        alt not consistent or confidence < 0.8
+    loop "Refinement until consistent and confidence high"
+        alt "not consistent or low confidence"
             App->>Matcher: graph_a, graph_b, previous_mapping, critic_feedback
             Matcher->>App: refined AnalogyMapping
             App->>App: check_ontology_alignment
-            alt ontology mismatch
-                App->>Critic: skip; final_hypothesis = inconsistent
-            else ontology ok
+            alt "ontology mismatch"
+                App->>Critic: skip, final_hypothesis inconsistent
+            else "ontology ok"
                 App->>Critic: refined AnalogyMapping
                 Critic->>App: ValidatedHypothesis
             end
