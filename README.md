@@ -95,7 +95,7 @@ Once validated, Live mode activates instantly and unlocks generation features.
 | Layer | Technology |
 |-------|------------|
 | **AI / Agents** | [AutoGen](https://microsoft.github.io/autogen/) (Microsoft), Azure OpenAI, GPT-4o |
-| **Backend** | Python 3.10+, Pydantic, asyncio |
+| **Backend** | Python 3.11+, Pydantic, asyncio |
 | **Database** | MongoDB Atlas (PyMongo) |
 | **UI** | Streamlit |
 | **Search** | [ddgs](https://pypi.org/project/ddgs/) (DuckDuckGo) |
@@ -132,7 +132,7 @@ This project was developed using a modern **AI-assisted workflow**, combining se
 
 ### Required (all modes)
 
-- **Python 3.10+**
+- **Python 3.11+**
 - **MongoDB Atlas** (free tier) or MongoDB cluster
 
 ### Required (Live Mode only)
@@ -252,68 +252,22 @@ flowchart LR
 
 ---
 
-## Architecture
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                         Streamlit UI (app.py)                   │
-│  [New Search]  │  [Knowledge Base]  │  [Source Filtering]       │
-└─────────────────────────────────────────────────────────────────┘
-                                    │
-                                    ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                      Agent pipeline (AutoGen)                   │
-│                                                                 │
-│   Scout ──► Matcher ──► Critic ──► Architect                    │
-│     │          │           │            │                       │
-│     │     (mapping)   (refine if        │                       │
-│     │                 confidence<0.8)   ▼                       │
-│     │                         ResearchReport + ActionPlan       │
-└─────────────────────────────────────────────────────────────────┘
-                                    │
-                                    ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  Librarian (MongoDB)  │  collect_sources (ddgs)  │  draw_analogy│
-└─────────────────────────────────────────────────────────────────┘
-```
-
-| Agent | Role |
-|-------|------|
-| **Scout** | Extracts logical property graphs from texts |
-| **Matcher** | Aligns nodes between the two graphs |
-| **Critic** | Validates mapping consistency and confidence |
-| **Architect** | Synthesizes the report and technical action plan |
-| **Visionary** | (Researcher Mode) Suggests a source domain for a given problem |
-| **Librarian** | Stores and retrieves reports in MongoDB |
-
-### Multi-Agent Reasoning Console
-
-In Live Mode, watch the AI agents collaborate in real-time through the Reasoning Console:
-
-- **Scout**: Extracts logical property graphs from domain descriptions
-- **Matcher**: Aligns nodes between source and target domains
-- **Critic**: Validates mapping consistency and confidence
-- **Architect**: Synthesizes the research report and action plan
-- **Visionary**: (Researcher Mode) Suggests far-removed source domains
-
-The system implements an adaptive refinement loop: if the Critic detects low confidence or inconsistencies, the Matcher automatically refines the mapping with feedback integration.
-
----
-
 ## Project Structure
 
 ```
 Analogy-Engine/
 ├── app.py                 # Streamlit UI (interface + pipeline)
 ├── data_manager.py        # Static demo data for Archive/Demo mode
-├── main.py                # Alternative entry point
-├── requirements.txt       # Python dependencies
+├── main.py                # Alternative entry point (CLI)
+├── pyproject.toml         # Project config (Ruff, MyPy, Python 3.11+)
+├── requirements.txt      # Python dependencies
 ├── .env.example           # Configuration template (no secrets)
 ├── LICENSE                # MIT License
 ├── assets/
 │   ├── analogy_map.png    # Example analogy map
-│   └── maps/              # Generated graphs (current_display.png)
+│   └── maps/              # Generated graphs (last_analogy_graph.png)
 ├── agents/
+│   ├── base.py            # Base agent class
 │   ├── scout.py           # Graph extraction
 │   ├── matcher.py         # Node alignment
 │   ├── critic.py          # Validation
@@ -322,6 +276,7 @@ Analogy-Engine/
 │   └── librarian.py       # MongoDB storage
 ├── core/
 │   ├── config.py          # Environment variable loading
+│   ├── ontology.py        # Ontology alignment checks
 │   └── schema.py          # Pydantic models (ResearchReport, etc.)
 ├── scripts/
 │   ├── visualize_analogy.py   # Graph generation
@@ -330,7 +285,13 @@ Analogy-Engine/
 ├── config/
 │   └── pre-commit-config.yaml
 ├── docs/
-│   └── TEST_QUERIES.md   # English test prompts for both modes
+│   ├── ARCHITECTURE.md    # Detailed architecture & agent flow
+│   └── TEST_QUERIES.md    # English test prompts for both modes
+├── tests/
+│   ├── test_config.py     # core.config (LLM config from input)
+│   ├── test_data_manager.py
+│   ├── test_librarian.py  # Librarian (with mocked MongoDB)
+│   └── test_ontology.py   # Ontology alignment
 └── .github/workflows/
     └── quality.yml        # CI (ruff, mypy, pip-audit)
 ```
@@ -366,6 +327,7 @@ Tests cover:
 
 - **data_manager**: `get_existing_data()`, structure of `EXISTING_DATA`
 - **core.config**: `build_llm_config_from_input()` (validation, stripping, custom deployment)
+- **core.ontology**: ontology alignment checks
 - **agents.librarian**: `delete_report()`, `get_all_reports()` return type (with mocked MongoDB)
 
 ---
