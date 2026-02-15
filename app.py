@@ -167,8 +167,16 @@ def generate_markdown(report: ResearchReport, include_sources: bool = False) -> 
         "## Summary",
         report.summary.strip() if report.summary else "N/A",
         "",
-        "## Findings",
     ]
+    graph_path = Path("assets/maps/last_analogy_graph.png")
+    if graph_path.exists():
+        lines.extend([
+            "### 📊 Visual Mapping",
+            "",
+            "![Analogy Mapping](assets/maps/last_analogy_graph.png)",
+            "",
+        ])
+    lines.extend(["## Findings", ""])
     if report.findings:
         for f in report.findings:
             lines.append(f"- {f}")
@@ -282,6 +290,16 @@ def generate_pdf(report: ResearchReport, include_sources: bool = False) -> bytes
     _section_title("Summary")
     _write(report.summary.strip() if report.summary else "N/A")
     pdf.ln(8)
+
+    graph_path = Path("assets/maps/last_analogy_graph.png")
+    if graph_path.exists():
+        try:
+            pdf.image(str(graph_path), x=pdf.l_margin, y=pdf.get_y(), w=160)
+            # Advance Y so Findings does not overlap (w=160mm; reserve space for scaled height)
+            pdf.ln(100)
+        except Exception:
+            pass
+
     _hline()
 
     _section_title("Findings")
@@ -510,7 +528,8 @@ def run_pipeline(
     report.properties["stored_at"] = datetime.now(timezone.utc).isoformat()
     query = f"{text_source} {text_target}"
     report.sources = collect_sources(query, filter_academic, filter_rd, filter_noise)
-    draw_analogy(report, output_path="assets/maps/current_display.png")
+    Path("assets/maps").mkdir(parents=True, exist_ok=True)
+    draw_analogy(report, output_path="assets/maps/last_analogy_graph.png")
     librarian.store_report(report)
     st.session_state[KEY_ACTIVE_REPORT] = report.model_dump(mode="json")
 
@@ -693,8 +712,9 @@ def main() -> None:
                     st.error("Could not delete report.")
         st.divider()
         # Redraw the graph from stored trace (graph_a, graph_b) so we don't depend on saved images
-        map_path = Path("assets/maps/current_display.png")
+        map_path = Path("assets/maps/last_analogy_graph.png")
         if active_report.properties.get("graph_a") and active_report.properties.get("graph_b"):
+            Path("assets/maps").mkdir(parents=True, exist_ok=True)
             draw_analogy(active_report, output_path=str(map_path))
         if map_path.exists():
             # Lire les bytes pour éviter MediaFileStorageError (référence hash obsolète après rerun)
