@@ -1,5 +1,6 @@
 """Unit tests for Librarian agent (with mocked MongoDB)."""
 
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -15,7 +16,7 @@ def mock_mongo_collection() -> MagicMock:
 
 
 @pytest.fixture
-def sample_report_dict() -> dict:
+def sample_report_dict() -> dict[str, Any]:
     return {
         "hypothesis": {
             "mapping": {
@@ -48,7 +49,7 @@ def sample_report_dict() -> dict:
 
 
 @pytest.fixture
-def sample_metadata_dict() -> dict:
+def sample_metadata_dict() -> dict[str, Any]:
     return {
         "stored_at": "2025-01-01T12:00:00Z",
         "frequency": 0,
@@ -57,8 +58,8 @@ def sample_metadata_dict() -> dict:
 
 def test_delete_report_returns_true_when_deleted(
     mock_mongo_collection: MagicMock,
-    sample_report_dict: dict,
-    sample_metadata_dict: dict,
+    sample_report_dict: dict[str, Any],
+    sample_metadata_dict: dict[str, Any],
 ) -> None:
     mock_mongo_collection.delete_one.return_value.deleted_count = 1
     with patch("agents.librarian.MongoClient"), patch("agents.librarian.get_config") as mock_config:
@@ -90,8 +91,8 @@ def test_delete_report_returns_false_when_nothing_deleted(
 
 def test_get_all_reports_returns_tuples_of_report_metadata_and_id(
     mock_mongo_collection: MagicMock,
-    sample_report_dict: dict,
-    sample_metadata_dict: dict,
+    sample_report_dict: dict[str, Any],
+    sample_metadata_dict: dict[str, Any],
 ) -> None:
     doc_id = ObjectId()
     mock_mongo_collection.find.return_value.sort.return_value = [

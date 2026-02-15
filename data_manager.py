@@ -5,10 +5,12 @@ High-quality scientific analogy examples displayed when no Azure OpenAI
 credentials are provided. Used for hot-swap UX: Demo vs Live mode.
 """
 
+from typing import Any
+
 from core.schema import ActionPlan, AnalogyMapping, ResearchReport, ValidatedHypothesis
 
 # High-quality scientific analogy examples (doctoral-level)
-EXISTING_DATA: list[dict] = [
+EXISTING_DATA: list[dict[str, Any]] = [
     {
         "input_query": "Biological neural networks (synaptic plasticity, STDP) | Memristor-based neuromorphic architectures",
         "summary": "Deep structural analogy between biological learning and neuromorphic hardware: synaptic plasticity and spike-timing-dependent plasticity (STDP) map to memristive conductance updates and analog computation with ultra-low energy. Transferable mechanisms include local learning rules and temporal coding.",

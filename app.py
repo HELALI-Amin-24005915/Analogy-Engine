@@ -796,8 +796,8 @@ def main() -> None:
                 st.write(f"**Summary:** {ex.summary or 'N/A'}")
                 with st.expander("View details"):
                     st.write("**Findings**")
-                    for f in ex.findings:
-                        st.write(f"- {f}")
+                    for finding in ex.findings:
+                        st.write(f"- {finding}")
                     st.write("**Recommendation**")
                     st.write(ex.recommendation or "N/A")
                     st.write("**Transferable Mechanisms**")
@@ -842,8 +842,8 @@ def main() -> None:
                     st.write(f"**Summary:** {ex.summary or 'N/A'}")
                     with st.expander("View details"):
                         st.write("**Findings**")
-                        for f in ex.findings:
-                            st.write(f"- {f}")
+                        for finding in ex.findings:
+                            st.write(f"- {finding}")
                         st.write("**Recommendation**")
                         st.write(ex.recommendation or "N/A")
                         st.write("**Transferable Mechanisms**")

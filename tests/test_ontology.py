@@ -38,7 +38,9 @@ def graph_same_types() -> tuple[LogicalPropertyGraph, LogicalPropertyGraph]:
 
 
 @pytest.fixture
-def mapping_valid_alignment(graph_same_types) -> AnalogyMapping:
+def mapping_valid_alignment(
+    graph_same_types: tuple[LogicalPropertyGraph, LogicalPropertyGraph],
+) -> AnalogyMapping:
     """Node matches all same type: a1->b1 (STRUCTURE), a2->b2 (FUNCTION), a3->b3 (ATTRIBUTE)."""
     _, _ = graph_same_types
     return AnalogyMapping(
@@ -60,8 +62,8 @@ def mapping_valid_alignment(graph_same_types) -> AnalogyMapping:
 
 
 def test_ontology_alignment_valid(
-    graph_same_types,
-    mapping_valid_alignment,
+    graph_same_types: tuple[LogicalPropertyGraph, LogicalPropertyGraph],
+    mapping_valid_alignment: AnalogyMapping,
 ) -> None:
     """When all node_matches align same node_type, check returns (True, [])."""
     graph_a, graph_b = graph_same_types
@@ -75,7 +77,9 @@ def test_ontology_alignment_valid(
 # ---------------------------------------------------------------------------
 
 
-def test_ontology_alignment_single_mismatch(graph_same_types) -> None:
+def test_ontology_alignment_single_mismatch(
+    graph_same_types: tuple[LogicalPropertyGraph, LogicalPropertyGraph],
+) -> None:
     """One pair STRUCTURE vs FUNCTION -> (False, one issue)."""
     graph_a, graph_b = graph_same_types
     mapping = AnalogyMapping(
@@ -100,7 +104,9 @@ def test_ontology_alignment_single_mismatch(graph_same_types) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_ontology_alignment_multiple_mismatches(graph_same_types) -> None:
+def test_ontology_alignment_multiple_mismatches(
+    graph_same_types: tuple[LogicalPropertyGraph, LogicalPropertyGraph],
+) -> None:
     """Several pairs with type mismatch -> (False, multiple issues)."""
     graph_a, graph_b = graph_same_types
     mapping = AnalogyMapping(
@@ -124,7 +130,9 @@ def test_ontology_alignment_multiple_mismatches(graph_same_types) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_ontology_alignment_missing_node_ids(graph_same_types) -> None:
+def test_ontology_alignment_missing_node_ids(
+    graph_same_types: tuple[LogicalPropertyGraph, LogicalPropertyGraph],
+) -> None:
     """When source_id or target_id is not in the graph, that pair is skipped (no issue)."""
     graph_a, graph_b = graph_same_types
     mapping = AnalogyMapping(
@@ -144,7 +152,9 @@ def test_ontology_alignment_missing_node_ids(graph_same_types) -> None:
     assert issues == []
 
 
-def test_ontology_alignment_missing_id_plus_mismatch(graph_same_types) -> None:
+def test_ontology_alignment_missing_id_plus_mismatch(
+    graph_same_types: tuple[LogicalPropertyGraph, LogicalPropertyGraph],
+) -> None:
     """One pair missing, one pair mismatch -> one issue (the mismatch)."""
     graph_a, graph_b = graph_same_types
     mapping = AnalogyMapping(
@@ -184,7 +194,7 @@ def test_logic_node_default_type() -> None:
 def test_logic_node_rejects_invalid_type() -> None:
     """LogicNode with node_type not in (STRUCTURE, FUNCTION, ATTRIBUTE) is rejected by Pydantic."""
     with pytest.raises(Exception):  # ValidationError from Pydantic
-        LogicNode(id="x", label="y", node_type="concept")
+        LogicNode(id="x", label="y", node_type="concept")  # type: ignore[arg-type]
 
 
 # ---------------------------------------------------------------------------

@@ -86,7 +86,7 @@ async def run_dual_domain_test() -> None:
     similar = librarian.search_analogies(f"{text_source} {text_target}")
     if similar:
         print(f"\n📚 {len(similar)} analogie(s) passée(s) similaire(s) trouvée(s):")
-        for report, _ in similar:
+        for report, _meta, _id in similar:
             summary = report.summary or "(no summary)"
         print(f"  - {summary[:80]}..." if len(summary) > 80 else f"  - {summary}")
 
