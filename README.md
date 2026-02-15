@@ -1,7 +1,6 @@
 # Analogy-Engine
 
 [![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://helali-amin-24005915-analogy-engine-app-btjlvb.streamlit.app/)
-**[Launch the Live App](https://helali-amin-24005915-analogy-engine-app-btjlvb.streamlit.app/)**
 
 [![Quality · Doc · Security](https://github.com/HELALI-Amin-24005915/Analogy-Engine/actions/workflows/quality.yml/badge.svg)](https://github.com/HELALI-Amin-24005915/Analogy-Engine/actions/workflows/quality.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
