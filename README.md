@@ -1,5 +1,8 @@
 # Analogy-Engine
 
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://helali-amin-24005915-analogy-engine-app-btjlvb.streamlit.app/)
+**[Launch the Live App](https://helali-amin-24005915-analogy-engine-app-btjlvb.streamlit.app/)**
+
 [![Quality · Doc · Security](https://github.com/HELALI-Amin-24005915/Analogy-Engine/actions/workflows/quality.yml/badge.svg)](https://github.com/HELALI-Amin-24005915/Analogy-Engine/actions/workflows/quality.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
@@ -15,6 +18,19 @@
 ---
 
 **Analogy-Engine** is an AI-powered analogy engine for scientific research. It connects distant domains (e.g. hydraulics ↔ electricity, ecosystems ↔ distributed systems) through a chain of specialized agents and generates structured reports with a technical action plan.
+
+---
+
+## Quick Access & Usage
+
+The app is **deployed live** so the jury can try it immediately (see the [Streamlit badge](#analogy-engine) or link above). The UI implements a **Hot-Swap** logic (in `app.py`) so you can use it in two ways:
+
+| Mode | Description |
+|------|-------------|
+| **Demo Mode (default)** | The app opens in **Archive Mode** by default. You can browse pre-generated scientific analogies and explore the knowledge base **without any API key**. Ideal for a quick look and for evaluators who do not have Azure OpenAI credentials. |
+| **Live Mode** | To generate **new** analogies in real time, enter your **Azure OpenAI** credentials in the sidebar (API key, endpoint, deployment). Once validated, Live mode activates instantly and unlocks Dual Domain and Researcher generation. |
+
+No need to clone or configure anything to explore the demo; use the live link above. For architecture details, see [System Architecture](#system-architecture). UI screenshots are in the [Screenshots (UI)](#screenshots-ui) section.
 
 ---
 

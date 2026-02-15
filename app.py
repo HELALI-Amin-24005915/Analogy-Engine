@@ -170,12 +170,14 @@ def generate_markdown(report: ResearchReport, include_sources: bool = False) -> 
     ]
     graph_path = Path("assets/maps/last_analogy_graph.png")
     if graph_path.exists():
-        lines.extend([
-            "### 📊 Visual Mapping",
-            "",
-            "![Analogy Mapping](assets/maps/last_analogy_graph.png)",
-            "",
-        ])
+        lines.extend(
+            [
+                "### 📊 Visual Mapping",
+                "",
+                "![Analogy Mapping](assets/maps/last_analogy_graph.png)",
+                "",
+            ]
+        )
     lines.extend(["## Findings", ""])
     if report.findings:
         for f in report.findings:
